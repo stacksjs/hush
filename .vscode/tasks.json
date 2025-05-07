@@ -1,0 +1,49 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Hush",
+            "type": "shell",
+            "command": "xcodebuild",
+            "args": [
+                "-project",
+                "Hush/Hush.xcodeproj",
+                "-configuration",
+                "Debug",
+                "-scheme",
+                "Hush",
+                "build"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "new"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Clean Hush",
+            "type": "shell",
+            "command": "xcodebuild",
+            "args": [
+                "-project",
+                "Hush/Hush.xcodeproj",
+                "-configuration",
+                "Debug",
+                "-scheme",
+                "Hush",
+                "clean"
+            ],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

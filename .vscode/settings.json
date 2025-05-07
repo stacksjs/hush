@@ -1,0 +1,17 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/xcuserdata": true,
+        "**/*.xcodeproj/*": true,
+        "!**/*.xcodeproj/project.pbxproj": false
+    },
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": true,
+    "swift.path.swift_driver_bin": "/usr/bin/swift",
+    "[swift]": {
+        "editor.defaultFormatter": "sswg.swift-lang"
+    }
+} 
