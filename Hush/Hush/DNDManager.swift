@@ -19,7 +19,7 @@ public enum FocusMode: String, CaseIterable, Codable {
 // Options for Focus management
 public struct FocusOptions {
     public var mode: FocusMode = .standard
-    public var duration: TimeInterval? = nil  // nil means indefinite, otherwise in seconds
+    public var duration: TimeInterval?  // nil means indefinite, otherwise in seconds
     public var enableSound: Bool = false
     
     public init(mode: FocusMode = .standard, duration: TimeInterval? = nil, enableSound: Bool = false) {
@@ -222,9 +222,9 @@ class DNDManager: NSObject {
         task.launchPath = "/usr/bin/defaults"
         
         if enable {
-            task.arguments = ["write", "com.apple.controlcenter", "NSStatusItem Visible FocusModes" , "-bool", "true"]
+            task.arguments = ["write", "com.apple.controlcenter", "NSStatusItem Visible FocusModes", "-bool", "true"]
         } else {
-            task.arguments = ["write", "com.apple.controlcenter", "NSStatusItem Visible FocusModes" , "-bool", "false"]
+            task.arguments = ["write", "com.apple.controlcenter", "NSStatusItem Visible FocusModes", "-bool", "false"]
         }
         
         task.launch()

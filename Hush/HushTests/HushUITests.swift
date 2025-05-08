@@ -1,3 +1,4 @@
+@testable import Hush
 import XCTest
 
 class HushUITests: XCTestCase {

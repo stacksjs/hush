@@ -76,4 +76,3 @@ struct Statistics: Codable {
         return formatter.string(from: averageSessionDuration) ?? "0s"
     }
 }
-

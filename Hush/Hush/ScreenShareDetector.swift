@@ -163,7 +163,7 @@ import Cocoa
             "com.obsproject.obs-studio",        // OBS Studio
             "com.electron.screenrecorderkit",   // Screen Recorder
             "com.adobe.captivate",              // Adobe Captivate
-            "com.mainconcept.screenrecorder",   // Screen Recorder
+            "com.mainconcept.screenrecorder"    // Screen Recorder
         ]
         
         // Get all running applications

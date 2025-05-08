@@ -3,12 +3,11 @@
 
 import Cocoa
 
-// Create an instance of our AppDelegate
-let delegate = AppDelegate()
-
-// Get the shared application instance and set its delegate
+// Get the shared application instance
 let app = NSApplication.shared
-app.delegate = delegate
+
+// The AppDelegate will be loaded by AppDelegate+MainMenu.m
+// and set via Interface Builder
 
 // Run the application
 app.run() 
