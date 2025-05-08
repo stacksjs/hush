@@ -129,57 +129,74 @@ struct WelcomeView: View {
     @State private var launchAtLogin = true
     
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "bell.slash.circle.fill")
-                .font(.system(size: 60))
-                .foregroundColor(.accentColor)
-            
-            Text("Welcome to Hush")
-                .font(.title)
-                .bold()
-            
-            Text("Hush automatically enables Do Not Disturb mode when you're sharing your screen, protecting your privacy from notifications.")
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            
-            VStack(alignment: .leading) {
-                Text("Getting Started:").font(.headline).padding(.top)
+        VStack(spacing: 30) {
+            VStack(spacing: 16) {
+                Image(systemName: "bell.slash.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.accentColor)
+                    .padding(.top, 20)
                 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top) {
-                        Text("•")
-                        Text("Hush runs in your menu bar, quietly monitoring for screen sharing")
-                    }
-                    
-                    HStack(alignment: .top) {
-                        Text("•")
-                        Text("When screen sharing is detected, Do Not Disturb is automatically enabled")
-                    }
-                    
-                    HStack(alignment: .top) {
-                        Text("•")
-                        Text("When screen sharing ends, Do Not Disturb is disabled")
-                    }
-                    
-                    HStack(alignment: .top) {
-                        Text("•")
-                        Text("Open preferences to customize how Hush works")
+                Text("Welcome to Hush")
+                    .font(.system(size: 28, weight: .bold))
+                    .padding(.bottom, 8)
+                
+                Text("Hush automatically enables Do Not Disturb mode when you're sharing your screen, protecting your privacy from notifications.")
+                    .font(.system(size: 16))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+                    .frame(maxWidth: 500)
+                    .padding(.horizontal, 20)
+            }
+            
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Getting Started:")
+                    .font(.system(size: 18, weight: .semibold))
+                
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach([
+                        "Hush runs in your menu bar, quietly monitoring for screen sharing",
+                        "When screen sharing is detected, Do Not Disturb is automatically enabled",
+                        "When screen sharing ends, Do Not Disturb is disabled",
+                        "Open preferences to customize how Hush works"
+                    ], id: \.self) { text in
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("•")
+                                .font(.system(size: 16, weight: .bold))
+                            Text(text)
+                                .font(.system(size: 16))
+                                .lineLimit(nil)
+                        }
                     }
                 }
-                .padding(.leading, 10)
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal)
+            .frame(maxWidth: 520, alignment: .leading)
+            .padding(.horizontal, 20)
             
-            Toggle("Launch Hush when you log in", isOn: $launchAtLogin)
-                .padding(.horizontal, 40)
-                .padding(.top)
-            
-            Button("Get Started") {
-                onComplete(launchAtLogin)
+            VStack(spacing: 30) {
+                Toggle("Launch Hush when you log in", isOn: $launchAtLogin)
+                    .font(.system(size: 16))
+                    .padding(.horizontal, 20)
+                    .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                
+                Button(action: {
+                    onComplete(launchAtLogin)
+                }) {
+                    Text("Get Started")
+                        .font(.system(size: 18, weight: .semibold))
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 60)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                        .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.bottom, 30)
             }
-            .padding(.top)
         }
-        .frame(width: 480, height: 360)
-        .padding()
+        .frame(width: 600, height: 530)
+        .background(Color(NSColor.windowBackgroundColor))
+        .cornerRadius(12)
     }
 } 

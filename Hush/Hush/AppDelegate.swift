@@ -88,6 +88,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu.addItem(NSMenuItem(title: "Status: Not currently blocking", action: nil, keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem.separator())
         
+        // Debug options (for testing)
+        #if DEBUG
+        let debugItem = NSMenuItem(title: "Test Screen Sharing", action: #selector(toggleTestScreenSharing(_:)), keyEquivalent: "t")
+        debugItem.target = self
+        statusMenu.addItem(debugItem)
+        statusMenu.addItem(NSMenuItem.separator())
+        #endif
+        
         // Focus mode submenu
         let focusModeMenu = NSMenu()
         for mode in FocusMode.allCases {
@@ -501,7 +509,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Create and configure the welcome window
         let welcomeWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 530),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -555,4 +563,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         NSApplication.shared.terminate(nil)
     }
+    
+    // MARK: - Debug Methods
+    
+    #if DEBUG
+    @objc func toggleTestScreenSharing(_ sender: NSMenuItem) {
+        // Toggle between simulating screen sharing on/off
+        if lastScreenSharingState {
+            // Simulate screen sharing ended
+            lastScreenSharingState = false
+            disableDoNotDisturbAfterScreenSharing()
+            sender.title = "Test Screen Sharing (currently OFF)"
+        } else {
+            // Simulate screen sharing started
+            lastScreenSharingState = true
+            enableDoNotDisturbForScreenSharing()
+            sender.title = "Test Screen Sharing (currently ON)"
+        }
+    }
+    #endif
 } 
