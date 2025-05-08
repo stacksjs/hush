@@ -25,7 +25,7 @@ jobs:
       - name: Set up Swift
         uses: swift-actions/setup-swift@v1
         with:
-          swift-version: 5.9
+          swift-version: 6.0
 
       - name: Install dependencies
         run: |
@@ -77,20 +77,39 @@ jobs:
             -exportPath build/export
 
       - name: Create DMG
+        id: create_dmg
         run: |
           cd Hush
           mkdir -p build/dmg
+
+          # Check if background image exists
+          if [ -f "Hush/Assets.xcassets/background.png" ]; then
+            BG_OPTION="--background Hush/Assets.xcassets/background.png"
+          else
+            BG_OPTION=""
+          fi
+
+          # Check if icon exists
+          if [ -f "Hush/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png" ]; then
+            ICON_PATH="Hush/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png"
+          else
+            # Find an app icon in the appiconset
+            ICON_PATH=$(find "Hush/Assets.xcassets/AppIcon.appiconset" -name "*.png" | sort -r | head -1)
+          fi
+
           create-dmg \
             --volname "Hush" \
-            --volicon "Hush/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png" \
-            --background "Hush/Assets.xcassets/background.png" \
+            --volicon "$ICON_PATH" \
+            $BG_OPTION \
             --window-pos 200 120 \
             --window-size 800 450 \
             --icon-size 100 \
             --app-drop-link 600 165 \
             --icon "Hush.app" 200 165 \
-            "build/Hush.dmg" \
+            "build/Hush-${{ github.ref_name }}.dmg" \
             "build/export/Hush.app"
+
+          echo "dmg_path=build/Hush-${{ github.ref_name }}.dmg" >> $GITHUB_OUTPUT
 
       - name: Notarize DMG
         if: startsWith(github.ref, 'refs/tags/')
@@ -103,36 +122,47 @@ jobs:
 
           echo "Submitting app for notarization"
           xcrun notarytool submit \
-            build/Hush.dmg \
+            ${{ steps.create_dmg.outputs.dmg_path }} \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_PASSWORD" \
             --team-id "$TEAM_ID" \
             --wait
 
           echo "Stapling notarization ticket to DMG"
-          xcrun stapler staple build/Hush.dmg
+          xcrun stapler staple ${{ steps.create_dmg.outputs.dmg_path }}
 
       - name: Extract release notes
         id: extract_release_notes
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-          # Extract release notes from markdown if available
+          # Extract release notes from CHANGELOG.md if available
           if [ -f "CHANGELOG.md" ]; then
-            sed -n "/## ${VERSION/v/}/,/## /p" CHANGELOG.md | sed '1d;$d' > release_notes.md
-          else
+            VERSION_WITHOUT_V=${VERSION/v/}
+            sed -n "/## ${VERSION_WITHOUT_V}/,/## /p" CHANGELOG.md | sed '1d;$d' > release_notes.md
+            if [ ! -s release_notes.md ]; then
+              # If no specific version entry found, try alternative formats
+              sed -n "/## \[${VERSION_WITHOUT_V}\]/,/## /p" CHANGELOG.md | sed '1d;$d' > release_notes.md
+            fi
+          fi
+
+          # Create default release notes if extraction failed or file doesn't exist
+          if [ ! -f "release_notes.md" ] || [ ! -s "release_notes.md" ]; then
             echo "Release ${VERSION}" > release_notes.md
           fi
 
+          cat release_notes.md
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: stacksjs/action-releaser@main
         with:
           files: |
-            Hush/build/Hush.dmg
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            Hush/${{ steps.create_dmg.outputs.dmg_path }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          draft: "false"
+          prerelease: "false"
+          note: ${{ steps.extract_release_notes.outputs.notes || file(format('{0}/release_notes.md', github.workspace)) }}
+          homebrewFormula: "homebrew-formula.rb.template"
+          homebrewRepo: "stacksjs/homebrew-tap"
+          homebrewPath: "Formula"

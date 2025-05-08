@@ -1,6 +1,7 @@
 import XCTest
+import Testing // Swift 6 Testing framework
 
-/// A basic test class to verify that our test setup is working
+/// A basic test class to verify that our test setup is working with XCTest
 class BasicFunctionalityTests: XCTestCase {
     
     func testBasicFunctionality() {
@@ -59,6 +60,85 @@ class BasicFunctionalityTests: XCTestCase {
     private func asyncOperation() async -> Int {
         // Simulate an asynchronous operation
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        return 42
+    }
+}
+
+// Swift 6 Testing Framework demo
+@Suite("Basic Swift Testing Demo")
+struct BasicTestingSuite {
+    
+    @Test("Basic functionality with Swift Testing")
+    func testBasicFunctionality() {
+        // This test uses Swift 6's #expect macro instead of XCTest assertions
+        #expect(true)
+        #expect(!false)
+        #expect(2 + 2 == 4)
+    }
+    
+    @Test("Optional handling with Swift Testing")
+    func testOptionalHandling() {
+        let optionalValue: Int? = 42
+        
+        // Swift Testing's #expect provides better diagnostics for optionals
+        #expect(optionalValue != nil)
+        
+        // Swift Testing's #require macro will automatically unwrap optionals
+        let unwrapped = try #require(optionalValue)
+        #expect(unwrapped == 42)
+    }
+    
+    @Test("Array operations with Swift Testing")
+    func testArrayOperations() {
+        var array = [1, 2, 3]
+        
+        #expect(array.count == 3)
+        #expect(array.contains(2))
+        
+        array.append(4)
+        #expect(array.count == 4)
+        #expect(array.last == 4)
+        
+        let removed = array.removeFirst()
+        #expect(removed == 1)
+        #expect(array.first == 2)
+    }
+    
+    // Swift Testing supports parameterized tests
+    @Test("String operations", arguments: [
+        ("Hello, World!", "HELLO, WORLD!", "hello, world!"),
+        ("Swift 6", "SWIFT 6", "swift 6"),
+        ("Testing", "TESTING", "testing")
+    ])
+    func testStringOperations(original: String, uppercased: String, lowercased: String) {
+        #expect(original.uppercased() == uppercased)
+        #expect(original.lowercased() == lowercased)
+    }
+    
+    @Test("Async operations with Swift Testing")
+    func testAsyncOperation() async throws {
+        let result = await asyncOperation()
+        #expect(result == 42)
+    }
+    
+    // Showcase Swift 6's count(where:) functionality
+    @Test("New count(where:) method")
+    func testCountWhere() {
+        let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        
+        let evenCount = numbers.count { $0 % 2 == 0 }
+        #expect(evenCount == 5)
+        
+        let oddCount = numbers.count { $0 % 2 != 0 }
+        #expect(oddCount == 5)
+        
+        let greaterThanFiveCount = numbers.count { $0 > 5 }
+        #expect(greaterThanFiveCount == 5)
+    }
+    
+    private func asyncOperation() async -> Int {
+        // Simulate an asynchronous operation
+        try? await Task.sleep(for: .milliseconds(100)) // using Swift 6's Task.sleep with Duration
         return 42
     }
 } 

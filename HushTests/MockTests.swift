@@ -1,4 +1,5 @@
 import XCTest
+import Synchronization // New in Swift 6
 
 // MARK: - Mock Models
 
@@ -13,7 +14,7 @@ enum MockFocusMode: String, CaseIterable {
 }
 
 /// Mock implementation of focus options
-struct MockFocusOptions {
+struct MockFocusOptions: Sendable { // Added Sendable for concurrency safety
     var mode: MockFocusMode = .standard
     var duration: TimeInterval? = nil
     
@@ -24,7 +25,8 @@ struct MockFocusOptions {
 }
 
 /// Mock class for Do Not Disturb management
-class MockDNDManager {
+@DebugDescription // Using Swift 6's new debugging macro
+actor MockDNDManager { // Changed to actor for safer concurrency
     private var activeModes: [MockFocusMode: Bool] = [:]
     static let focusModeChangedNotification = Notification.Name("MockFocusModeChangedNotification")
     
@@ -40,11 +42,13 @@ class MockDNDManager {
         activeModes[options.mode] = true
         
         // Post a notification
-        NotificationCenter.default.post(
-            name: Self.focusModeChangedNotification,
-            object: self,
-            userInfo: ["mode": options.mode.rawValue, "active": true]
-        )
+        Task { @MainActor in
+            NotificationCenter.default.post(
+                name: Self.focusModeChangedNotification,
+                object: self,
+                userInfo: ["mode": options.mode.rawValue, "active": true]
+            )
+        }
     }
     
     func disableDoNotDisturb(mode: MockFocusMode) {
@@ -52,11 +56,13 @@ class MockDNDManager {
         activeModes[mode] = false
         
         // Post a notification
-        NotificationCenter.default.post(
-            name: Self.focusModeChangedNotification,
-            object: self,
-            userInfo: ["mode": mode.rawValue, "active": false]
-        )
+        Task { @MainActor in
+            NotificationCenter.default.post(
+                name: Self.focusModeChangedNotification,
+                object: self,
+                userInfo: ["mode": mode.rawValue, "active": false]
+            )
+        }
     }
     
     func isAnyModeActive() -> Bool {
@@ -66,12 +72,16 @@ class MockDNDManager {
     func isModeActive(_ mode: MockFocusMode) -> Bool {
         return activeModes[mode] ?? false
     }
+    
+    var debugDescription: String {
+        "DNDManager: Active modes: \(activeModes.filter { $0.value }.keys.map { $0.rawValue }.joined(separator: ", "))"
+    }
 }
 
 /// Mock class for screen sharing detection
 class MockScreenShareDetector {
-    private var isDetecting = false
-    private var simulatedScreenSharing = false
+    private let isDetectingAtomic = Atomic<Bool>(false) // Using Swift 6 Atomic from Synchronization
+    private let screenSharingState = Atomic<Bool>(false)
     
     init(autoStart: Bool = false) {
         if autoStart {
@@ -80,21 +90,34 @@ class MockScreenShareDetector {
     }
     
     func startMonitoring() {
-        isDetecting = true
+        isDetectingAtomic.store(true)
     }
     
     func stopMonitoring() {
-        isDetecting = false
+        isDetectingAtomic.store(false)
     }
     
     func isScreenSharing() -> Bool {
-        return simulatedScreenSharing
+        return screenSharingState.load()
+    }
+    
+    func isDetecting() -> Bool {
+        return isDetectingAtomic.load()
     }
     
     // For testing purposes
-    func simulateScreenSharing(_ isSharing: Bool) {
-        simulatedScreenSharing = isSharing
+    func simulateScreenSharing(_ isSharing: Bool) throws(ScreenShareError) {
+        if !isDetectingAtomic.load() {
+            throw ScreenShareError.notMonitoring
+        }
+        screenSharingState.store(isSharing)
     }
+}
+
+// Custom error type for screen sharing operations (Swift 6 typed throws)
+enum ScreenShareError: Error {
+    case notMonitoring
+    case detectionFailed
 }
 
 // MARK: - Tests
@@ -113,54 +136,79 @@ class MockDNDTests: XCTestCase {
         screenShareDetector = nil
     }
     
-    func testEnableDisableDoNotDisturb() throws {
+    func testEnableDisableDoNotDisturb() async throws {
         // Initially no modes should be active
-        XCTAssertFalse(dndManager.isAnyModeActive(), "No modes should be active initially")
+        XCTAssertFalse(await dndManager.isAnyModeActive(), "No modes should be active initially")
         
         // Enable Do Not Disturb
         let options = MockFocusOptions(mode: .standard)
-        dndManager.enableDoNotDisturb(options: options)
+        await dndManager.enableDoNotDisturb(options: options)
         
         // Verify it's active
-        XCTAssertTrue(dndManager.isAnyModeActive(), "A mode should be active")
-        XCTAssertTrue(dndManager.isModeActive(.standard), "Standard mode should be active")
+        XCTAssertTrue(await dndManager.isAnyModeActive(), "A mode should be active")
+        XCTAssertTrue(await dndManager.isModeActive(.standard), "Standard mode should be active")
         
         // Disable it
-        dndManager.disableDoNotDisturb(mode: .standard)
+        await dndManager.disableDoNotDisturb(mode: .standard)
         
         // Verify it's inactive
-        XCTAssertFalse(dndManager.isAnyModeActive(), "No modes should be active after disabling")
-        XCTAssertFalse(dndManager.isModeActive(.standard), "Standard mode should be inactive")
+        XCTAssertFalse(await dndManager.isAnyModeActive(), "No modes should be active after disabling")
+        XCTAssertFalse(await dndManager.isModeActive(.standard), "Standard mode should be inactive")
     }
     
-    func testScreenSharingDetection() throws {
+    func testScreenSharingDetection() async throws {
         // Initially not detecting screen sharing
         XCTAssertFalse(screenShareDetector.isScreenSharing(), "Should not detect screen sharing initially")
         
         // Simulate screen sharing
-        screenShareDetector.simulateScreenSharing(true)
+        try screenShareDetector.simulateScreenSharing(true)
         XCTAssertTrue(screenShareDetector.isScreenSharing(), "Should detect screen sharing after simulation")
         
         // Enable DND when screen sharing is detected
         if screenShareDetector.isScreenSharing() {
             let options = MockFocusOptions(mode: .doNotDisturb)
-            dndManager.enableDoNotDisturb(options: options)
+            await dndManager.enableDoNotDisturb(options: options)
         }
         
         // Verify DND is active
-        XCTAssertTrue(dndManager.isModeActive(.doNotDisturb), "DND should be active during screen sharing")
+        XCTAssertTrue(await dndManager.isModeActive(.doNotDisturb), "DND should be active during screen sharing")
         
         // End screen sharing
-        screenShareDetector.simulateScreenSharing(false)
+        try screenShareDetector.simulateScreenSharing(false)
         XCTAssertFalse(screenShareDetector.isScreenSharing(), "Should not detect screen sharing after ending simulation")
         
         // Disable DND when screen sharing ends
         if !screenShareDetector.isScreenSharing() {
-            dndManager.disableDoNotDisturb(mode: .doNotDisturb)
+            await dndManager.disableDoNotDisturb(mode: .doNotDisturb)
         }
         
         // Verify DND is inactive
-        XCTAssertFalse(dndManager.isModeActive(.doNotDisturb), "DND should be inactive after screen sharing ends")
+        XCTAssertFalse(await dndManager.isModeActive(.doNotDisturb), "DND should be inactive after screen sharing ends")
+    }
+    
+    // Test Swift 6's typed throws feature
+    func testScreenSharingSimulationErrors() throws(ScreenShareError) {
+        // Create a detector that's not monitoring
+        let detector = MockScreenShareDetector(autoStart: false)
+        XCTAssertFalse(detector.isDetecting(), "Detector should not be monitoring")
+        
+        // This should throw a ScreenShareError.notMonitoring
+        try detector.simulateScreenSharing(true)
+    }
+    
+    // Test Swift 6's typed throws with do-catch
+    func testErrorHandling() {
+        // Create a detector that's not monitoring
+        let detector = MockScreenShareDetector(autoStart: false)
+        
+        do {
+            try detector.simulateScreenSharing(true)
+            XCTFail("Should have thrown an error")
+        } catch ScreenShareError.notMonitoring {
+            // This is expected
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
     }
     
     func testAsyncNotificationObservation() async throws {
@@ -183,7 +231,7 @@ class MockDNDTests: XCTestCase {
         
         // Enable DND
         let options = MockFocusOptions(mode: .standard)
-        dndManager.enableDoNotDisturb(options: options)
+        await dndManager.enableDoNotDisturb(options: options)
         
         // Wait for notification
         await fulfillment(of: [expectation], timeout: 2.0)
@@ -193,5 +241,19 @@ class MockDNDTests: XCTestCase {
         
         // Cleanup
         NotificationCenter.default.removeObserver(observer)
+    }
+    
+    // Test Swift 6's concurrency improvements
+    func testConcurrentAccess() async throws {
+        // Test concurrent access to the MockDNDManager actor
+        async let task1 = dndManager.enableDoNotDisturb(options: MockFocusOptions(mode: .standard))
+        async let task2 = dndManager.enableDoNotDisturb(options: MockFocusOptions(mode: .doNotDisturb))
+        
+        // Wait for both tasks to complete
+        await (task1, task2)
+        
+        // Verify both modes are active
+        XCTAssertTrue(await dndManager.isModeActive(.standard), "Standard mode should be active")
+        XCTAssertTrue(await dndManager.isModeActive(.doNotDisturb), "DND mode should be active")
     }
 } 

@@ -27,11 +27,23 @@ Hush uses multiple methods to reliably detect screen sharing:
 ## Requirements
 
 - macOS 12.0 or later (Monterey and above)
-- Xcode 14.0 or later (for development)
+- Xcode 16.0 or later (for development)
+- Swift 6.0
+
+## Swift 6 Compatibility
+
+Hush has been fully migrated to Swift 6, taking advantage of its new features:
+
+- **Enhanced Safety**: Full data-race safety with strict concurrency checking
+- **Performance Improvements**: Optimized memory management and execution
+- **Modern Testing**: Using Swift's new Testing framework for comprehensive test coverage
+- **Low-level Concurrency**: Leveraging the Synchronization library for thread safety
+
+For developers working with this codebase, we've prepared a detailed [Swift 6 Migration Guide](.github/SWIFT6_MIGRATION.md) to help understand the changes and patterns used.
 
 ## Building
 
-1. Open `Hush.xcodeproj` in Xcode
+1. Open `Hush.xcodeproj` in Xcode 16 or later
 2. Build and run the project
 
 ## Development
@@ -44,6 +56,20 @@ This project uses GitHub Actions for Continuous Integration and Deployment:
 
 - **CI Workflow**: Runs tests, linting, and build validation on every pull request and push to main
 - **Release Workflow**: Builds, signs, notarizes, and releases the app when a new version tag is pushed
+
+### Release Process
+
+Our release process is automated using GitHub Actions and the [action-releaser](https://github.com/owner/action-releaser) GitHub Action:
+
+1. Update the version in your project files and `CHANGELOG.md`
+2. Create and push a new git tag (e.g., `git tag v1.0.0 && git push origin v1.0.0`)
+3. The Release workflow automatically:
+   - Builds the macOS app
+   - Creates a signed and notarized DMG
+   - Creates a GitHub Release with the DMG attached
+   - Updates the Homebrew formula (if configured)
+
+The action-releaser provides flexible configuration options for customizing the release process. See the `.github/workflows/release.yml` file for details.
 
 For more information on the release process, see the [Release Guide](.github/RELEASE.md).
 
@@ -109,3 +135,15 @@ We would like to extend our thanks to the following sponsors for funding Stacks 
 The MIT License (MIT). Please see [LICENSE](LICENSE.md) for more information.
 
 Made with 💙
+
+## Installation
+
+### Direct Download
+
+Download the latest DMG from the [Releases page](https://github.com/username/hush/releases).
+
+### Homebrew
+
+```bash
+brew install username/tap/hush
+```

@@ -22,7 +22,7 @@ jobs:
       - name: Set up Swift
         uses: swift-actions/setup-swift@v1
         with:
-          swift-version: 5.9
+          swift-version: 6.0
 
       - name: Run tests
         run: swift test
@@ -69,10 +69,82 @@ jobs:
 
             const file = fs.readFileSync(path.join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
             try {
-              yaml.load(file);
+              const workflow = yaml.load(file);
               console.log('Release workflow is valid YAML');
+              
+              // Validate action-releaser configuration
+              const releaseStep = workflow.jobs.build.steps.find(step => 
+                step.uses && step.uses.includes('action-releaser'));
+              
+              if (!releaseStep) {
+                console.error('Error: action-releaser not found in release workflow');
+                process.exit(1);
+              }
+              
+              // Validate required inputs
+              const requiredInputs = ['files', 'token', 'tag'];
+              const missingInputs = requiredInputs.filter(input => 
+                !releaseStep.with || !releaseStep.with[input]);
+              
+              if (missingInputs.length > 0) {
+                console.error(`Error: Missing required inputs in action-releaser: ${missingInputs.join(', ')}`);
+                process.exit(1);
+              }
+              
+              console.log('action-releaser configuration is valid');
             } catch (error) {
               console.log('Error parsing release workflow:');
               console.log(error.message);
               process.exit(1);
             }
+
+  test-dmg-creation:
+    name: Test DMG Creation
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Build simple app to test DMG creation
+        run: |
+          cd Hush
+          mkdir -p build/test
+          # Create a minimal app bundle for testing
+          mkdir -p build/test/TestApp.app/Contents/MacOS
+          echo '#!/bin/bash' > build/test/TestApp.app/Contents/MacOS/TestApp
+          echo 'echo "Test App"' >> build/test/TestApp.app/Contents/MacOS/TestApp
+          chmod +x build/test/TestApp.app/Contents/MacOS/TestApp
+
+          # Find an icon to use (if available)
+          ICON_PATH=$(find "Hush/Assets.xcassets/AppIcon.appiconset" -name "*.png" | sort -r | head -1 || echo "")
+
+          # Create test DMG
+          if [ -n "$ICON_PATH" ]; then
+            create-dmg \
+              --volname "TestApp" \
+              --volicon "$ICON_PATH" \
+              --window-pos 200 120 \
+              --window-size 800 450 \
+              --icon "TestApp.app" 200 165 \
+              "build/TestApp.dmg" \
+              "build/test/TestApp.app"
+          else
+            create-dmg \
+              --volname "TestApp" \
+              --window-pos 200 120 \
+              --window-size 800 450 \
+              --icon "TestApp.app" 200 165 \
+              "build/TestApp.dmg" \
+              "build/test/TestApp.app"
+          fi
+
+          # Verify DMG was created
+          test -f build/TestApp.dmg

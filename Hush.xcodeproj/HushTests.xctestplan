@@ -2,9 +2,23 @@
   "configurations" : [
     {
       "id" : "E19B5A7D-C29A-43B7-9B60-A15F94E25F6C",
-      "name" : "Configuration 1",
+      "name" : "Default",
       "options" : {
 
+      }
+    },
+    {
+      "id" : "2F53A8B1-C56D-49E3-AF1B-99C4D7E9D631",
+      "name" : "Swift 6 Testing",
+      "options" : {
+        "language" : "Swift",
+        "languageVersion" : "Swift 6.0",
+        "environmentVariableEntries" : [
+          {
+            "key" : "SWIFT_STRICT_CONCURRENCY",
+            "value" : "complete"
+          }
+        ]
       }
     }
   ],
@@ -18,6 +32,7 @@
         }
       ]
     },
+    "testExecutionOrdering" : "random",
     "targetForVariableExpansion" : {
       "containerPath" : "container:Hush.xcodeproj",
       "identifier" : "1A1A1A1A1A1A1A1A1A1A1A2A",

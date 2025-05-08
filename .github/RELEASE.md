@@ -1,20 +1,28 @@
-# Releasing Hush
+# Release Guide
 
-This document explains how to create a new release of Hush using the GitHub Actions workflow.
+This document outlines the process for creating and publishing new releases of Hush.
 
 ## Prerequisites
 
-Before you can release Hush, you need to set up the following GitHub Secrets in your repository settings:
+- Push access to the repository
+- Access to code signing certificates (for notarized builds)
+- GitHub token with appropriate permissions
+- Xcode 16 or later (for Swift 6 support)
+
+### GitHub Secrets Configuration
+
+For the automated release process to work, you need to configure the following GitHub Secrets in your repository settings:
 
 1. **MACOS_CERT_P12**: Base64-encoded macOS signing certificate
 2. **MACOS_CERT_PASSWORD**: Password for the macOS signing certificate
 3. **APPLE_TEAM_ID**: Your Apple Developer Team ID
 4. **APPLE_ID**: The Apple ID email used for notarization
 5. **APPLE_ID_PASSWORD**: An app-specific password for your Apple ID
+6. **GITHUB_TOKEN**: Automatically provided by GitHub Actions
 
-### Exporting Your Certificates
+#### Exporting Your Certificates
 
-To export your signing certificates:
+To export your signing certificates for the MACOS_CERT_P12 secret:
 
 1. Open Keychain Access on your Mac
 2. Select the certificates and their associated private keys
@@ -26,38 +34,139 @@ To export your signing certificates:
    ```
 6. Add the output as the `MACOS_CERT_P12` secret in GitHub
 
-## Creating a Release
+For the APPLE_ID_PASSWORD, create an app-specific password in your Apple ID account settings.
 
-To create a new release:
+## Automated Release Process
 
-1. Update the version in your project's `Info.plist` file
-2. Commit your changes and push to main
-3. Create a new tag with the version number (must start with 'v'):
-   ```sh
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
+Our releases are automated using GitHub Actions and the [action-releaser](https://github.com/stacksjs/action-releaser) GitHub Action, with full support for Swift 6.
 
-This will trigger the GitHub Actions workflow, which will:
+### Version Management
 
-1. Run the tests
-2. Build the Hush app
-3. Sign the app with your certificate
-4. Create a DMG installer
-5. Notarize the app with Apple
-6. Create a GitHub Release with the DMG attached
+1. Update version numbers in:
+   - `Hush/Hush/Info.plist`
+   - Any other relevant files mentioning version
 
-## Release Notes
+2. Update the `CHANGELOG.md` with your new version and detailed release notes in the format:
 
-If you have a `CHANGELOG.md` file in your repository with properly formatted version headers (e.g., `## 1.0.0`), the workflow will automatically extract the relevant section for the release notes.
+```markdown
+## X.Y.Z - YYYY-MM-DD
+
+### Added
+- New feature A
+- New feature B
+
+### Changed
+- Improvement to feature C
+- Updated dependency X
+
+### Fixed
+- Bug in feature D
+- Issue with component E
+```
+
+3. Commit these changes to the repository.
+
+### Creating a Release
+
+1. Tag the release with a semantic version:
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+2. The GitHub Actions release workflow will automatically:
+   - Build the app
+   - Code sign it
+   - Create a DMG
+   - Notarize the DMG with Apple
+   - Create a GitHub Release with release notes from the CHANGELOG
+   - Attach the DMG to the release
+   - Update the Homebrew formula (if configured)
+
+3. The entire process typically takes 10-15 minutes. You can monitor progress in the Actions tab of the GitHub repository.
+
+### Release Artifacts
+
+The release will produce:
+- A signed, notarized DMG file named `Hush-vX.Y.Z.dmg`
+- A GitHub Release at `https://github.com/username/hush/releases/tag/vX.Y.Z`
+
+## Swift 6 Compatibility
+
+Hush is built with Swift 6, which brings several improvements to our codebase:
+
+- **Data-race safety**: Swift 6 adds compile-time protection against data races in concurrent code.
+- **Improved performance**: Optimizations in Swift 6 improve performance across the application.
+- **Typed throws**: Swift 6 enables functions to specify exactly what error types they can throw.
+- **Synchronization library**: Access to low-level concurrency primitives for fine-grained control.
+- **Swift Testing**: Improved testing capabilities with the new Swift Testing framework.
+
+### Known Issues
+
+If you encounter any issues related to Swift 6 compatibility, please report them in our issue tracker.
+
+## Homebrew Integration (Optional)
+
+To enable automatic Homebrew formula updates:
+
+1. Ensure you have a Homebrew tap repository (e.g., `username/homebrew-tap`)
+2. Configure the following in `.github/workflows/release.yml`:
+   - Uncomment and update the Homebrew configuration
+   - Set the correct `homebrewRepo` value
+3. Update `homebrew-formula.rb.template` with correct SHA256 checksums after the first manual release
+
+## Manual Release (Fallback)
+
+If the automated process fails, you can perform a manual release:
+
+1. Build the app in Xcode:
+   - Select Product > Archive
+   - Use the Organizer to export a Developer ID signed application
+
+2. Create a DMG using `create-dmg`:
+```bash
+create-dmg \
+  --volname "Hush" \
+  --volicon "path/to/icon.icns" \
+  --window-pos 200 120 \
+  --window-size 800 450 \
+  --icon-size 100 \
+  --app-drop-link 600 165 \
+  --icon "Hush.app" 200 165 \
+  "Hush-vX.Y.Z.dmg" \
+  "path/to/Hush.app"
+```
+
+3. Notarize the DMG:
+```bash
+xcrun notarytool submit Hush-vX.Y.Z.dmg \
+  --apple-id "your-apple-id" \
+  --password "app-specific-password" \
+  --team-id "your-team-id" \
+  --wait
+
+xcrun stapler staple Hush-vX.Y.Z.dmg
+```
+
+4. Create a GitHub Release manually through the web interface.
 
 ## Troubleshooting
 
-If the release workflow fails, check the following:
+Common issues and their solutions:
 
-1. Ensure all required secrets are properly set up
-2. Verify that your signing certificate is valid
-3. Make sure your Apple Developer Program membership is active
-4. Check that the Xcode project builds successfully locally
+### Code Signing Issues
+- Ensure certificates are correctly installed in the GitHub Actions keychain
+- Check certificate expiration dates
+- Verify team ID matches in the exportOptions.plist
 
-For more details, see the [GitHub Actions workflow logs](../../actions) in your repository. 
+### Notarization Issues
+- Check Apple ID and password are correct
+- Verify app is signed with the correct identity
+- Look for security or entitlement issues using `codesign -dvvv`
+
+### DMG Creation Issues
+- Verify the path to assets (background, icons)
+- Check if app is exported to the expected location
+
+For more help, contact the repository maintainers. 

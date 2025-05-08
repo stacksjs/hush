@@ -1,0 +1,34 @@
+class Hush < Formula
+  desc "Automatic Do Not Disturb when screen sharing"
+  homepage "https://github.com/stacksjs/hush"
+  version "{{ version }}"
+  
+  if OS.mac? && Hardware::CPU.arm?
+    url "{{ Hush-{{ version }}.dmg_url }}"
+    sha256 "{{ mac_arm_sha256 }}"
+  elsif OS.mac? && Hardware::CPU.intel?
+    url "{{ Hush-{{ version }}.dmg_url }}"
+    sha256 "{{ mac_intel_sha256 }}"
+  else
+    odie "Unsupported platform. Hush is only available for macOS."
+  end
+
+  app "Hush.app"
+  
+  # Updated to match Swift 6 minimum requirements
+  depends_on macos: ">= :monterey"
+
+  def caveats
+    <<~EOS
+      To start Hush automatically when you log in:
+        ln -sfv #{opt_prefix}/Hush.app ~/Applications/
+      
+      Hush requires macOS Monterey (12.0) or later.
+      Built with Swift 6.0.
+    EOS
+  end
+  
+  test do
+    system "#{appdir}/Hush.app/Contents/MacOS/Hush", "--version"
+  end
+end 

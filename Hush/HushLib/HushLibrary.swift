@@ -1,9 +1,11 @@
 import Foundation
+import Synchronization
 
 // MARK: - Core Models
 
 /// Focus modes available in the app
-public enum FocusMode: String, CaseIterable, Codable {
+@available(macOS 14.0, *)
+public enum FocusMode: String, CaseIterable, Codable, Sendable {
     case standard = "Focus"
     case doNotDisturb = "Do Not Disturb" 
     case work = "Work"
@@ -16,7 +18,8 @@ public enum FocusMode: String, CaseIterable, Codable {
 }
 
 /// Options for Focus management
-public struct FocusOptions {
+@available(macOS 14.0, *)
+public struct FocusOptions: Sendable {
     public var mode: FocusMode = .standard
     public var duration: TimeInterval? = nil  // nil means indefinite, otherwise in seconds
     public var enableSound: Bool = false
@@ -28,94 +31,152 @@ public struct FocusOptions {
     }
 }
 
+/// Errors that can occur in DNDManager
+@available(macOS 14.0, *)
+public enum DNDError: Error, Sendable {
+    case scriptExecutionFailed(String)
+    case focusModeNotAvailable(FocusMode)
+    case systemServiceUnavailable
+    case permissionDenied
+    case systemError(String)
+}
+
 /// Core functionality for detecting screen sharing
+@available(macOS 14.0, *)
 public protocol ScreenShareDetectorProtocol {
     func isScreenSharing() -> Bool
-    func startMonitoring()
-    func stopMonitoring()
+    func startMonitoring() async
+    func stopMonitoring() async
 }
 
 /// Core functionality for Do Not Disturb management
-public protocol DNDManagerProtocol {
-    func enableDoNotDisturb(options: FocusOptions)
-    func disableDoNotDisturb(mode: FocusMode)
-    func disableAllModes()
-    func isAnyModeActive() -> Bool
-    func isModeActive(_ mode: FocusMode) -> Bool
+/// Swift 6 version with actor isolation and async/await
+@available(macOS 14.0, *)
+public protocol DNDManagerProtocol: Actor {
+    /// Enable Do Not Disturb mode with options
+    func enableDoNotDisturb(options: FocusOptions) async throws(DNDError)
+    
+    /// Disable a specific Do Not Disturb mode
+    func disableDoNotDisturb(mode: FocusMode) async throws(DNDError)
+    
+    /// Disable all active Focus modes
+    func disableAllModes() async
+    
+    /// Check if any Focus mode is active
+    func isAnyModeActive() async -> Bool
+    
+    /// Check if a specific mode is active
+    func isModeActive(_ mode: FocusMode) async -> Bool
 }
 
 // MARK: - Mock Implementation for Testing
 
-/// A test implementation of screen share detector
-public class MockScreenShareDetector: ScreenShareDetectorProtocol {
-    private var isDetecting = false
-    private var simulatedScreenSharing = false
+/// A thread-safe implementation of screen share detector for Swift 6
+@available(macOS 14.0, *)
+@DebugDescription
+public actor MockScreenShareDetector: ScreenShareDetectorProtocol {
+    private let isDetecting = Atomic<Bool>(false)
+    private let simulatedScreenSharing = Atomic<Bool>(false)
     
     public init(autoStart: Bool = false) {
         if autoStart {
-            startMonitoring()
+            Task { await startMonitoring() }
         }
     }
     
-    public func startMonitoring() {
-        isDetecting = true
+    public func startMonitoring() async {
+        isDetecting.store(true, ordering: .relaxed)
     }
     
-    public func stopMonitoring() {
-        isDetecting = false
+    public func stopMonitoring() async {
+        isDetecting.store(false, ordering: .relaxed)
     }
     
-    public func isScreenSharing() -> Bool {
-        return simulatedScreenSharing
+    public nonisolated func isScreenSharing() -> Bool {
+        return simulatedScreenSharing.load(ordering: .relaxed)
     }
     
     public func simulateScreenSharing(_ isSharing: Bool) {
-        simulatedScreenSharing = isSharing
+        simulatedScreenSharing.store(isSharing, ordering: .relaxed)
+    }
+    
+    // Custom debug description
+    public nonisolated var debugDescription: String {
+        "MockScreenShareDetector"
     }
 }
 
-/// A test implementation of DND manager
-public class MockDNDManager: DNDManagerProtocol {
-    private var activeModes: [FocusMode: Bool] = [:]
+/// A Swift 6 compatible mock implementation of DND manager using actors
+@available(macOS 14.0, *)
+@DebugDescription
+public actor MockDNDManager: DNDManagerProtocol {
+    private let activeModes = Atomic<[FocusMode: Bool]>([:])
     public static let focusModeChangedNotification = Notification.Name("MockFocusModeChangedNotification")
     
     public init() {
+        var initialModes: [FocusMode: Bool] = [:]
         for mode in FocusMode.allCases {
-            activeModes[mode] = false
+            initialModes[mode] = false
+        }
+        activeModes.store(initialModes, ordering: .relaxed)
+    }
+    
+    public func enableDoNotDisturb(options: FocusOptions) async throws(DNDError) {
+        var modes = activeModes.load(ordering: .relaxed)
+        modes[options.mode] = true
+        activeModes.store(modes, ordering: .relaxed)
+        
+        // Post notification (must be done on main thread)
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: Self.focusModeChangedNotification,
+                object: self,
+                userInfo: ["mode": options.mode.rawValue, "active": true]
+            )
         }
     }
     
-    public func enableDoNotDisturb(options: FocusOptions) {
-        activeModes[options.mode] = true
+    public func disableDoNotDisturb(mode: FocusMode) async throws(DNDError) {
+        var modes = activeModes.load(ordering: .relaxed)
+        modes[mode] = false
+        activeModes.store(modes, ordering: .relaxed)
         
-        NotificationCenter.default.post(
-            name: Self.focusModeChangedNotification,
-            object: self,
-            userInfo: ["mode": options.mode.rawValue, "active": true]
-        )
-    }
-    
-    public func disableDoNotDisturb(mode: FocusMode) {
-        activeModes[mode] = false
-        
-        NotificationCenter.default.post(
-            name: Self.focusModeChangedNotification,
-            object: self,
-            userInfo: ["mode": mode.rawValue, "active": false]
-        )
-    }
-    
-    public func disableAllModes() {
-        for mode in FocusMode.allCases {
-            activeModes[mode] = false
+        // Post notification (must be done on main thread)
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: Self.focusModeChangedNotification,
+                object: self,
+                userInfo: ["mode": mode.rawValue, "active": false]
+            )
         }
     }
     
-    public func isAnyModeActive() -> Bool {
-        return activeModes.values.contains(true)
+    public func disableAllModes() async {
+        var allInactive: [FocusMode: Bool] = [:]
+        for mode in FocusMode.allCases {
+            allInactive[mode] = false
+        }
+        activeModes.store(allInactive, ordering: .relaxed)
     }
     
-    public func isModeActive(_ mode: FocusMode) -> Bool {
-        return activeModes[mode] ?? false
+    public func isAnyModeActive() async -> Bool {
+        let modes = activeModes.load(ordering: .relaxed)
+        return modes.values.contains(true)
+    }
+    
+    public func isModeActive(_ mode: FocusMode) async -> Bool {
+        let modes = activeModes.load(ordering: .relaxed)
+        return modes[mode] ?? false
+    }
+    
+    // Swift 6 count(where:) method
+    public func countActiveModes() async -> Int {
+        let modes = activeModes.load(ordering: .relaxed)
+        return modes.count { $0.value }
+    }
+    
+    // Custom debug description
+    nonisolated public var debugDescription: String {
+        "MockDNDManager"
     }
 } 

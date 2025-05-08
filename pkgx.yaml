@@ -1,2 +1,5 @@
 dependencies:
   bun.sh: ^1.2.12
+  brew.sh/create-dmg: "*"
+  brew.sh/jq: "*"
+  swift.org: "*"
