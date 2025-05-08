@@ -1,0 +1,47 @@
+excluded:
+  - .build
+  - Pods
+  - Carthage
+  - DerivedData
+  - Hush/HushTests/TestHelpers
+
+disabled_rules:
+  - line_length
+  - trailing_whitespace
+  - nesting
+  - cyclomatic_complexity
+  - function_body_length
+  - file_length
+
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - fatal_error_message
+  - first_where
+  - modifier_order
+  - toggle_bool
+  - unused_declaration
+  - unused_import
+
+force_cast: warning
+force_try: warning
+force_unwrapping: warning
+
+identifier_name:
+  excluded:
+    - id
+    - URL
+    - GlobalAPIKey
+
+type_name:
+  min_length: 3
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - UI
+    - App
+    - DNS
+    - DND
+
+reporter: "xcode"

@@ -2,6 +2,9 @@
 
 Hush is a modern macOS app that automatically detects when you're screen sharing and enables Do Not Disturb mode to protect your privacy, similar to the popular Muzzle.app.
 
+[![CI Status](https://github.com/username/hush/workflows/CI/badge.svg)](https://github.com/username/hush/actions/workflows/ci.yml)
+[![Release Status](https://github.com/username/hush/workflows/Release/badge.svg)](https://github.com/username/hush/actions/workflows/release.yml)
+
 ## Features
 
 - 🎯 **Advanced Screen Sharing Detection** - Multiple detection methods for reliable operation
@@ -31,6 +34,19 @@ Hush uses multiple methods to reliably detect screen sharing:
 1. Open `Hush.xcodeproj` in Xcode
 2. Build and run the project
 
+## Development
+
+For detailed development information, please see our [Development Guide](.github/DEVELOPMENT.md).
+
+## CI/CD
+
+This project uses GitHub Actions for Continuous Integration and Deployment:
+
+- **CI Workflow**: Runs tests, linting, and build validation on every pull request and push to main
+- **Release Workflow**: Builds, signs, notarizes, and releases the app when a new version tag is pushed
+
+For more information on the release process, see the [Release Guide](.github/RELEASE.md).
+
 ## Usage
 
 1. Hush runs in your menu bar
@@ -45,30 +61,33 @@ Hush only detects screen sharing state locally on your Mac and doesn't collect o
 ## Testing
 
 ```bash
-./buddy test
+swift test
+```
+
+You can also run the Xcode tests using:
+
+```bash
+cd Hush
+xcodebuild test -project Hush.xcodeproj -scheme Hush
 ```
 
 ## Changelog
 
-Please see our [releases](https://github.com/stacksjs/stacks/releases) page for more information on what has changed recently.
+Please see our [CHANGELOG.md](CHANGELOG.md) for more information on what has changed recently.
 
 ## Contributing
 
-Please see the [Contributing Guide](https://github.com/stacksjs/contributing) for details.
+Please see the [Contributing Guide](.github/CONTRIBUTING.md) for details.
 
 ## Community
 
 For help, discussion about best practices, or any other conversation that would benefit from being searchable:
 
-[Discussions on GitHub](https://github.com/stacksjs/stacks/discussions)
-
-For casual chit-chat with others using this package:
-
-[Join the Stacks Discord Server](https://discord.gg/stacksjs)
+[Discussions on GitHub](https://github.com/username/hush/discussions)
 
 ## Postcardware
 
-“Software that is free, but hopes for a postcard.” We love receiving postcards from around the world showing where Stacks is being used! We showcase them on our website too.
+"Software that is free, but hopes for a postcard." We love receiving postcards from around the world showing where Stacks is being used! We showcase them on our website too.
 
 Our address: Stacks.js, 12665 Village Ln #2306, Playa Vista, CA 90094, United States 🌎
 

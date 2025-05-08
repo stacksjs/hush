@@ -1,0 +1,138 @@
+# wip
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Set up Swift
+        uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: 5.9
+
+      - name: Install dependencies
+        run: |
+          brew install create-dmg
+
+      - name: Set up keychain for code signing
+        uses: mskelton/macos-certs@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+
+      - name: Run tests
+        run: |
+          swift test
+
+      - name: Build app
+        run: |
+          cd Hush
+          xcodebuild clean archive \
+            -project Hush.xcodeproj \
+            -scheme Hush \
+            -configuration Release \
+            -archivePath build/Hush.xcarchive
+
+      - name: Export app
+        run: |
+          cd Hush
+          mkdir -p build/export
+
+          cat > exportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>developer-id</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>teamID</key>
+            <string>${{ secrets.APPLE_TEAM_ID }}</string>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath build/Hush.xcarchive \
+            -exportOptionsPlist exportOptions.plist \
+            -exportPath build/export
+
+      - name: Create DMG
+        run: |
+          cd Hush
+          mkdir -p build/dmg
+          create-dmg \
+            --volname "Hush" \
+            --volicon "Hush/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png" \
+            --background "Hush/Assets.xcassets/background.png" \
+            --window-pos 200 120 \
+            --window-size 800 450 \
+            --icon-size 100 \
+            --app-drop-link 600 165 \
+            --icon "Hush.app" 200 165 \
+            "build/Hush.dmg" \
+            "build/export/Hush.app"
+
+      - name: Notarize DMG
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cd Hush
+
+          echo "Submitting app for notarization"
+          xcrun notarytool submit \
+            build/Hush.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$TEAM_ID" \
+            --wait
+
+          echo "Stapling notarization ticket to DMG"
+          xcrun stapler staple build/Hush.dmg
+
+      - name: Extract release notes
+        id: extract_release_notes
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+          # Extract release notes from markdown if available
+          if [ -f "CHANGELOG.md" ]; then
+            sed -n "/## ${VERSION/v/}/,/## /p" CHANGELOG.md | sed '1d;$d' > release_notes.md
+          else
+            echo "Release ${VERSION}" > release_notes.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            Hush/build/Hush.dmg
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

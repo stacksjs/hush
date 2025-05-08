@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "E19B5A7D-C29A-43B7-9B60-A15F94E25F6C",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:Hush.xcodeproj",
+          "identifier" : "1A1A1A1A1A1A1A1A1A1A1A2A",
+          "name" : "Hush"
+        }
+      ]
+    },
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Hush.xcodeproj",
+      "identifier" : "1A1A1A1A1A1A1A1A1A1A1A2A",
+      "name" : "Hush"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Hush.xcodeproj",
+        "identifier" : "HushTests",
+        "name" : "HushTests"
+      }
+    }
+  ],
+  "version" : 1
+} 

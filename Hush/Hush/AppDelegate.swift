@@ -31,6 +31,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - App Lifecycle
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Check if we're running in test mode
+        let isTestMode = CommandLine.arguments.contains("UITestMode")
+        
         loadPreferences()
         setupIcons()
         setupStatusBar()
@@ -38,11 +41,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupMonitoring()
         setupNotificationObservers()
         
-        // Show welcome screen on first launch
-        if preferences.isFirstLaunch {
+        // Show welcome screen on first launch, but not in test mode
+        if preferences.isFirstLaunch && !isTestMode {
             showWelcomeScreen()
             preferences.isFirstLaunch = false
             savePreferences()
+        } else if isTestMode {
+            // In test mode, ensure the welcome screen is shown for UI tests
+            showWelcomeScreen()
         }
     }
     
