@@ -1,5 +1,28 @@
 import Foundation
 
+// MARK: - Data Models
+
+// Preferences model using string-based storage for Focus modes
+struct Preferences: Codable {
+    // General settings
+    var isFirstLaunch = true
+    var launchAtLogin = false
+    var detectionIntervalSeconds: TimeInterval = 1.0
+    
+    // Notification settings
+    var showNotifications = true
+    var showErrorNotifications = true
+    var enableNotificationSound = false
+    
+    // Focus settings
+    var selectedFocusModeRawValue: String = "Focus"
+    var selectedDuration: TimeInterval? = nil  // nil means until screen sharing ends
+    var keepEnabledAfterSharing = false
+    
+    init() {}
+}
+
+// Statistics model
 struct Statistics: Codable {
     var screenSharingActivations: Int = 0
     var sessionCount: Int = 0
@@ -7,6 +30,8 @@ struct Statistics: Codable {
     var lastActivated: Date? = nil
     var lastDeactivated: Date? = nil
     var appInstallDate: Date = Date()
+    
+    init() {}
     
     // Computed properties (not stored)
     var formattedTotalActiveTime: String {
@@ -26,4 +51,4 @@ struct Statistics: Codable {
         formatter.unitsStyle = .abbreviated
         return formatter.string(from: averageSessionDuration) ?? "0s"
     }
-} 
+}

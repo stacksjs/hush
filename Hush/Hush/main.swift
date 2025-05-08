@@ -1,9 +1,11 @@
 import Cocoa
 
-// Create the application and delegate
-let app = NSApplication.shared
+// Create an instance of our AppDelegate
 let delegate = AppDelegate()
+
+// Get the shared application instance and set its delegate
+let app = NSApplication.shared
 app.delegate = delegate
 
 // Run the application
-_ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv) 
+app.run() 

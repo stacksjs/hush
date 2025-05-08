@@ -1,9 +1,7 @@
 import SwiftUI
+import Foundation
 
-// Import the models
-@_exported import struct Hush.Preferences
-@_exported import enum Hush.FocusMode
-@_exported import struct Hush.Statistics
+// MARK: - Views
 
 struct AboutView: View {
     var body: some View {
@@ -51,9 +49,9 @@ struct PreferencesView: View {
             
             GroupBox(label: Text("Focus Settings")) {
                 VStack(alignment: .leading) {
-                    Picker("Focus Mode:", selection: $preferences.selectedFocusMode) {
+                    Picker("Focus Mode:", selection: $preferences.selectedFocusModeRawValue) {
                         ForEach(FocusMode.allCases, id: \.self) { mode in
-                            Text(mode.displayName).tag(mode)
+                            Text(mode.displayName).tag(mode.rawValue)
                         }
                     }
                     

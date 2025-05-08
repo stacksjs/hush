@@ -1,28 +1,36 @@
 import Foundation
 import AppKit
 
+// MARK: - Focus Mode Definitions
+
 // Enum for Focus modes
-enum FocusMode: String, CaseIterable, Codable {
+public enum FocusMode: String, CaseIterable, Codable {
     case standard = "Focus"
     case doNotDisturb = "Do Not Disturb" 
     case work = "Work"
     case personal = "Personal"
     case sleep = "Sleep"
     
-    var displayName: String {
+    public var displayName: String {
         return self.rawValue
     }
 }
 
 // Options for Focus management
-struct FocusOptions {
-    var mode: FocusMode = .standard
-    var duration: TimeInterval? = nil  // nil means indefinite, otherwise in seconds
-    var enableSound: Bool = false
+public struct FocusOptions {
+    public var mode: FocusMode = .standard
+    public var duration: TimeInterval? = nil  // nil means indefinite, otherwise in seconds
+    public var enableSound: Bool = false
+    
+    public init(mode: FocusMode = .standard, duration: TimeInterval? = nil, enableSound: Bool = false) {
+        self.mode = mode
+        self.duration = duration
+        self.enableSound = enableSound
+    }
 }
 
 // DNDManager handles enabling and disabling macOS's Do Not Disturb (Focus) mode
-@objc class DNDManager: NSObject {
+class DNDManager: NSObject {
     // Properties to track state
     private var activeModes: [FocusMode: Bool] = [:]
     private var activeTimers: [FocusMode: Timer] = [:]
@@ -33,8 +41,8 @@ struct FocusOptions {
     private let notificationCenter = NotificationCenter.default
     
     // Constants
-    @objc static let focusModeChangedNotification = Notification.Name("HushFocusModeChangedNotification")
-    @objc static let focusErrorNotification = Notification.Name("HushFocusErrorNotification")
+    static let focusModeChangedNotification = Notification.Name("HushFocusModeChangedNotification")
+    static let focusErrorNotification = Notification.Name("HushFocusErrorNotification")
     
     // Initialize with default detection of available modes
     override init() {
@@ -155,6 +163,24 @@ struct FocusOptions {
     
     // MARK: - Private Methods
     
+    // Run an AppleScript with error handling
+    private func runAppleScriptWithErrorHandling(_ script: String) throws {
+        let appleScript = NSAppleScript(source: script)
+        var error: NSDictionary?
+        
+        appleScript?.executeAndReturnError(&error)
+        
+        if let error = error {
+            throw NSError(
+                domain: "HushDNDManager",
+                code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Failed to run AppleScript: \(error[NSAppleScript.errorMessage] ?? "Unknown error")"
+                ]
+            )
+        }
+    }
+    
     // Create the appropriate AppleScript for enabling Focus mode
     private func createFocusEnableScript(for mode: FocusMode) -> String {
         let modeName = mode.displayName
@@ -166,42 +192,6 @@ struct FocusOptions {
                     # Try to turn on \(modeName) if it exists and is accessible
                     click menu bar item "Focus" of menu bar 1
                     delay 0.5
-                    
-                    # Try to select the specific mode if needed
-                    if "\(modeName)" is not "Focus" then
-                        # For specific modes, need to navigate the UI differently
-                        if exists menu item "\(modeName)" of menu 1 of menu bar item "Focus" of menu bar 1 then
-                            click menu item "\(modeName)" of menu 1 of menu bar item "Focus" of menu bar 1
-                            delay 0.5
-                        end if
-                    end if
-                    
-                    # Turn on the mode
-                    if exists button "Turn On" of window 1 then
-                        click button "Turn On" of window 1
-                    end if
-                on error
-                    # If that fails, try to use Control Center
-                    try
-                        click menu bar item "Control Center" of menu bar 1
-                        delay 0.5
-                        click button "Focus" of window "Control Center"
-                        delay 0.5
-                        
-                        # Try to select the specific mode if needed
-                        if "\(modeName)" is not "Focus" then
-                            # For specific modes, need to navigate the Control Center UI differently
-                            if exists menu item "\(modeName)" of menu 1 of window "Control Center" then
-                                click menu item "\(modeName)" of menu 1 of window "Control Center"
-                                delay 0.5
-                            end if
-                        end if
-                        
-                        # Turn on the mode
-                        if exists button "Turn On" of window "Control Center" then
-                            click button "Turn On" of window "Control Center"
-                        end if
-                    end try
                 end try
             end tell
         end tell
@@ -219,93 +209,24 @@ struct FocusOptions {
                     # Try to turn off \(modeName) if it exists and is accessible
                     click menu bar item "Focus" of menu bar 1
                     delay 0.5
-                    
-                    # Try to select the specific mode if needed
-                    if "\(modeName)" is not "Focus" then
-                        # For specific modes, need to navigate the UI differently
-                        if exists menu item "\(modeName)" of menu 1 of menu bar item "Focus" of menu bar 1 then
-                            click menu item "\(modeName)" of menu 1 of menu bar item "Focus" of menu bar 1
-                            delay 0.5
-                        end if
-                    end if
-                    
-                    # Turn off the mode
-                    if exists button "Turn Off" of window 1 then
-                        click button "Turn Off" of window 1
-                    end if
-                on error
-                    # If that fails, try to use Control Center
-                    try
-                        click menu bar item "Control Center" of menu bar 1
-                        delay 0.5
-                        click button "Focus" of window "Control Center"
-                        delay 0.5
-                        
-                        # Try to select the specific mode if needed
-                        if "\(modeName)" is not "Focus" then
-                            # For specific modes, need to navigate the Control Center UI differently
-                            if exists menu item "\(modeName)" of menu 1 of window "Control Center" then
-                                click menu item "\(modeName)" of menu 1 of window "Control Center"
-                                delay 0.5
-                            end if
-                        end if
-                        
-                        # Turn off the mode
-                        if exists button "Turn Off" of window "Control Center" then
-                            click button "Turn Off" of window "Control Center"
-                        end if
-                    end try
                 end try
             end tell
         end tell
         """
     }
     
-    // Alternative implementation for older macOS versions (pre-Monterey)
-    // This can be used if needed for backward compatibility
-    func legacyToggleDoNotDisturb(enable: Bool) {
-        let script = """
-        tell application "System Events"
-            tell process "SystemUIServer"
-                try
-                    key down option
-                    click menu bar item 1 of menu bar 1
-                    key up option
-                on error
-                    key up option
-                end try
-            end tell
-        end tell
-        """
+    // Legacy method for older macOS versions
+    private func legacyToggleDoNotDisturb(enable: Bool) {
+        // Fallback method for controlling DND via defaults command
+        let task = Process()
+        task.launchPath = "/usr/bin/defaults"
         
-        do {
-            try runAppleScriptWithErrorHandling(script)
-        } catch {
-            lastError = error
-            print("Legacy AppleScript error: \(error)")
+        if enable {
+            task.arguments = ["write", "com.apple.controlcenter", "NSStatusItem Visible FocusModes" , "-bool", "true"]
+        } else {
+            task.arguments = ["write", "com.apple.controlcenter", "NSStatusItem Visible FocusModes" , "-bool", "false"]
         }
-    }
-    
-    // Helper method to run AppleScript with error handling
-    private func runAppleScriptWithErrorHandling(_ script: String) throws {
-        let appleScript = NSAppleScript(source: script)
-        var errorInfo: NSDictionary?
         
-        guard let _ = appleScript?.executeAndReturnError(&errorInfo) else {
-            if let errorInfo = errorInfo {
-                let error = NSError(
-                    domain: "HushAppleScriptErrorDomain",
-                    code: errorInfo[NSAppleScript.errorNumber] as? Int ?? -1,
-                    userInfo: [NSLocalizedDescriptionKey: errorInfo[NSAppleScript.errorMessage] as? String ?? "Unknown error"]
-                )
-                throw error
-            } else {
-                throw NSError(
-                    domain: "HushAppleScriptErrorDomain",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "Failed to execute AppleScript"]
-                )
-            }
-        }
+        task.launch()
     }
 } 

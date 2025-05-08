@@ -12,6 +12,9 @@
 		1A1A1A1A1A1A1A1A1A1A1A1E /* DNDManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A1F /* DNDManager.swift */; };
 		1A1A1A1A1A1A1A1A1A1A1A20 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A21 /* Assets.xcassets */; };
 		1A1A1A1A1A1A1A1A1A1A1A22 /* Base.lproj in Resources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A23 /* Base.lproj */; };
+		1A1A1A1A1A1A1A1A1A1A1A99 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A98 /* Models.swift */; };
+		1A1A1A1A1A1A1A1A1A1A1A97 /* AppViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A96 /* AppViews.swift */; };
+		1A1A1A1A1A1A1A1A1A1A1A95 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A94 /* main.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,6 +25,9 @@
 		1A1A1A1A1A1A1A1A1A1A1A21 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A1A1A1A1A23 /* Base.lproj */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Base.lproj; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A1A1A1A1A25 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A1A1A1A1A98 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A1A1A1A1A96 /* AppViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViews.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A1A1A1A1A94 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,14 +60,25 @@
 		1A1A1A1A1A1A1A1A1A1A1A28 /* Hush */ = {
 			isa = PBXGroup;
 			children = (
+				1A1A1A1A1A1A1A1A1A1A1A94 /* main.swift */,
 				1A1A1A1A1A1A1A1A1A1A1A1B /* AppDelegate.swift */,
 				1A1A1A1A1A1A1A1A1A1A1A1D /* ScreenShareDetector.swift */,
 				1A1A1A1A1A1A1A1A1A1A1A1F /* DNDManager.swift */,
+				1A1A1A1A1A1A1A1A1A1A1A98 /* Models.swift */,
+				1A1A1A1A1A1A1A1A1A1A1A93 /* Views */,
 				1A1A1A1A1A1A1A1A1A1A1A21 /* Assets.xcassets */,
 				1A1A1A1A1A1A1A1A1A1A1A23 /* Base.lproj */,
 				1A1A1A1A1A1A1A1A1A1A1A25 /* Info.plist */,
 			);
 			path = Hush;
+			sourceTree = "<group>";
+		};
+		1A1A1A1A1A1A1A1A1A1A1A93 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				1A1A1A1A1A1A1A1A1A1A1A96 /* AppViews.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -134,7 +151,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A1A1A1A1A1A1A1A1A1A1A95 /* main.swift in Sources */,
 				1A1A1A1A1A1A1A1A1A1A1A1A /* AppDelegate.swift in Sources */,
+				1A1A1A1A1A1A1A1A1A1A1A99 /* Models.swift in Sources */,
+				1A1A1A1A1A1A1A1A1A1A1A97 /* AppViews.swift in Sources */,
 				1A1A1A1A1A1A1A1A1A1A1A1C /* ScreenShareDetector.swift in Sources */,
 				1A1A1A1A1A1A1A1A1A1A1A1E /* DNDManager.swift in Sources */,
 			);
