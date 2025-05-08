@@ -1,3 +1,6 @@
+// Main entry point for the Hush app.
+// This file just creates the application delegate and runs the app.
+
 import Cocoa
 
 // Create an instance of our AppDelegate

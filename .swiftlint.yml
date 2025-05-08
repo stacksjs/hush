@@ -12,6 +12,7 @@ disabled_rules:
   - cyclomatic_complexity
   - function_body_length
   - file_length
+  - type_body_length
 
 opt_in_rules:
   - empty_count
@@ -20,6 +21,9 @@ opt_in_rules:
   - first_where
   - modifier_order
   - toggle_bool
+  - force_unwrapping
+
+analyzer_rules:
   - unused_declaration
   - unused_import
 

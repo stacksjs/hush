@@ -38,7 +38,7 @@ class HushUITests: XCTestCase {
     func testMenuBarItemAppears() throws {
         // This is a bit difficult to test directly with XCTest since the menu bar 
         // is outside the app's control, but we can verify that our app is running
-        XCTAssertTrue(app.windows.count > 0, "App should be running with at least one window")
+        XCTAssertFalse(app.windows.isEmpty, "App should be running with at least one window")
     }
     
     // Test the debug menu for testing screen sharing
