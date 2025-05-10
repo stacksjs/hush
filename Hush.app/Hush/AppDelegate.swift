@@ -545,13 +545,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Create and configure the about window
         let aboutWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 280, height: 180),
+            contentRect: NSRect(x: 0, y: 0, width: 280, height: 200),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
         aboutWindow.center()
         aboutWindow.title = "About Hush"
+        aboutWindow.isReleasedWhenClosed = false
         
         // Create the content
         let aboutView = NSHostingView(rootView: AboutView())

@@ -5,23 +5,32 @@ import Foundation
 
 struct AboutView: View {
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "bell.slash")
-                .font(.system(size: 40))
-                .foregroundColor(.accentColor)
+        VStack(spacing: 12) {
+            // Use app icon from bundle
+            if let appIcon = NSImage(named: NSImage.applicationIconName) {
+                Image(nsImage: appIcon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 80, height: 80)
+            } else {
+                // Fallback to system icon if app icon can't be loaded
+                Image(systemName: "bell.slash")
+                    .font(.system(size: 60))
+                    .foregroundColor(.accentColor)
+            }
             
-            Text("Hush").font(.title)
+            Text("Hush").font(.title).fontWeight(.medium)
             Text("Version 1.0").font(.caption)
-            Text("Mutes notifications when screen sharing")
+            Text("Mutes notifications when screen sharing.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             
             Text("© 2025 All rights reserved")
                 .font(.caption2)
-                .padding(.top, 10)
+                .padding(.top, 6)
         }
-        .frame(width: 280, height: 180)
+        .frame(width: 280, height: 200)
         .padding()
     }
 }
