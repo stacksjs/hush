@@ -17,7 +17,7 @@ struct AboutView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             
-            Text("© 2024 All rights reserved")
+            Text("© 2025 All rights reserved")
                 .font(.caption2)
                 .padding(.top, 10)
         }
@@ -32,17 +32,23 @@ struct PreferencesView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
-            // Top spacing to avoid window title bar
+            // Top spacing to avoid window title bar - match exactly with bottom
             Spacer()
-                .frame(height: 35)
+                .frame(height: 80)
             
-            // Detection Interval slider
-            HStack(spacing: 16) {
-                Slider(value: $preferences.detectionIntervalSeconds, in: 0.5...5.0, step: 0.5)
+            // Detection Interval slider with better label
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Screen sharing check frequency:")
+                    .font(.system(size: 15))
+                    .padding(.leading, 2)
                 
-                Text("\(preferences.detectionIntervalSeconds, specifier: "%.1f")s")
-                    .font(.system(size: 15, weight: .medium))
-                    .frame(width: 45, alignment: .trailing)
+                HStack(spacing: 16) {
+                    Slider(value: $preferences.detectionIntervalSeconds, in: 0.5...5.0, step: 0.5)
+                    
+                    Text("\(preferences.detectionIntervalSeconds, specifier: "%.1f")s")
+                        .font(.system(size: 15, weight: .medium))
+                        .frame(width: 45, alignment: .trailing)
+                }
             }
             .padding(.horizontal, 20)
             
@@ -130,9 +136,11 @@ struct PreferencesView: View {
             }
             .padding(.horizontal, 20)
             
+            // Bottom spacing - match exactly with top
             Spacer()
+                .frame(height: 20)
             
-            // Save button at the bottom
+            // Save button at the bottom - push to bottom edge
             HStack {
                 Spacer()
                 Button(action: {
@@ -145,10 +153,10 @@ struct PreferencesView: View {
                 }
                 .buttonStyle(DefaultButtonStyle())
             }
-            .padding(.bottom, 15)
+            .padding(.bottom, 20)
             .padding(.trailing, 20)
         }
-        .frame(width: 460, height: 480)
+        .frame(width: 460, height: 500)
     }
 }
 
