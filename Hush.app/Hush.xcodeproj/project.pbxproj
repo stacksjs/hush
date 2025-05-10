@@ -12,9 +12,9 @@
 		1A1A1A1A1A1A1A1A1A1A1A1E /* DNDManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A1F /* DNDManager.swift */; };
 		1A1A1A1A1A1A1A1A1A1A1A20 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A21 /* Assets.xcassets */; };
 		1A1A1A1A1A1A1A1A1A1A1A22 /* Base.lproj in Resources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A23 /* Base.lproj */; };
-		1A1A1A1A1A1A1A1A1A1A1A99 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A98 /* Models.swift */; };
-		1A1A1A1A1A1A1A1A1A1A1A97 /* AppViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A96 /* AppViews.swift */; };
 		1A1A1A1A1A1A1A1A1A1A1A95 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A94 /* main.swift */; };
+		1A1A1A1A1A1A1A1A1A1A1A97 /* AppViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A96 /* AppViews.swift */; };
+		1A1A1A1A1A1A1A1A1A1A1A99 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A1A1A1A1A98 /* Models.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,9 +25,9 @@
 		1A1A1A1A1A1A1A1A1A1A1A21 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A1A1A1A1A23 /* Base.lproj */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Base.lproj; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A1A1A1A1A25 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		1A1A1A1A1A1A1A1A1A1A1A98 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		1A1A1A1A1A1A1A1A1A1A1A96 /* AppViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViews.swift; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A1A1A1A1A94 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A1A1A1A1A96 /* AppViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViews.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A1A1A1A1A98 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -49,14 +49,6 @@
 			);
 			sourceTree = "<group>";
 		};
-		1A1A1A1A1A1A1A1A1A1A1A29 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				1A1A1A1A1A1A1A1A1A1A1A19 /* Hush.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
 		1A1A1A1A1A1A1A1A1A1A1A28 /* Hush */ = {
 			isa = PBXGroup;
 			children = (
@@ -71,6 +63,14 @@
 				1A1A1A1A1A1A1A1A1A1A1A25 /* Info.plist */,
 			);
 			path = Hush;
+			sourceTree = "<group>";
+		};
+		1A1A1A1A1A1A1A1A1A1A1A29 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1A1A1A1A1A1A1A1A1A1A1A19 /* Hush.app */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 		1A1A1A1A1A1A1A1A1A1A1A93 /* Views */ = {
@@ -292,14 +292,19 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Hush/Info.plist;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024. All rights reserved.";
+				INFOPLIST_KEY_CFBundleDisplayName = Hush;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Hush needs permission to control your Focus mode (Do Not Disturb) when screen sharing is detected.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024 Stacks.js. All rights reserved.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.Hush;
+				PRODUCT_BUNDLE_IDENTIFIER = org.stacksjs.Hush;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -317,14 +322,19 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Hush/Info.plist;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024. All rights reserved.";
+				INFOPLIST_KEY_CFBundleDisplayName = Hush;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Hush needs permission to control your Focus mode (Do Not Disturb) when screen sharing is detected.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024 Stacks.js. All rights reserved.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.Hush;
+				PRODUCT_BUNDLE_IDENTIFIER = org.stacksjs.Hush;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -334,15 +344,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A1A1A1A1A1A1A1A1A1A1A2F /* Build configuration list for PBXProject "Hush" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1A1A1A1A1A1A1A1A1A1A1A30 /* Debug */,
-				1A1A1A1A1A1A1A1A1A1A1A31 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		1A1A1A1A1A1A1A1A1A1A1A2B /* Build configuration list for PBXNativeTarget "Hush" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -352,7 +353,16 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		1A1A1A1A1A1A1A1A1A1A1A2F /* Build configuration list for PBXProject "Hush" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A1A1A1A1A1A1A1A1A1A1A30 /* Debug */,
+				1A1A1A1A1A1A1A1A1A1A1A31 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 	};
 	rootObject = 1A1A1A1A1A1A1A1A1A1A1A2E /* Project object */;
-} 
+}

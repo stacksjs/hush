@@ -15,7 +15,7 @@ class Hush < Formula
 
   app "Hush.app"
   
-  # Updated to match Swift 6 minimum requirements
+  # Swift 6 minimum requirements
   depends_on macos: ">= :monterey"
 
   def caveats
@@ -24,7 +24,7 @@ class Hush < Formula
         ln -sfv #{opt_prefix}/Hush.app ~/Applications/
       
       Hush requires macOS Monterey (12.0) or later.
-      Built with Swift 6.0.
+      Built with Swift 6.1.
     EOS
   end
   

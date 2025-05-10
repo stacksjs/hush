@@ -31,56 +31,124 @@ struct PreferencesView: View {
     var onSave: (Preferences) -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            GroupBox(label: Text("General Settings")) {
-                VStack(alignment: .leading) {
-                    Toggle("Launch at startup", isOn: $preferences.launchAtLogin)
+        VStack(alignment: .leading, spacing: 30) {
+            // Top spacing to avoid window title bar
+            Spacer()
+                .frame(height: 35)
+            
+            // Detection Interval slider
+            HStack(spacing: 16) {
+                Slider(value: $preferences.detectionIntervalSeconds, in: 0.5...5.0, step: 0.5)
+                
+                Text("\(preferences.detectionIntervalSeconds, specifier: "%.1f")s")
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 45, alignment: .trailing)
+            }
+            .padding(.horizontal, 20)
+            
+            // Focus Settings section
+            HStack(spacing: 8) {
+                Image(systemName: "moon.fill")
+                    .foregroundColor(.secondary)
+                Text("Focus Settings")
+                    .font(.headline)
+            }
+            .padding(.leading, 20)
+            .padding(.top, 5)
+            
+            GroupBox {
+                VStack(alignment: .leading, spacing: 24) {
+                    HStack {
+                        Text("Focus Mode:")
+                            .frame(width: 110, alignment: .leading)
+                        
+                        Picker("", selection: $preferences.selectedFocusModeRawValue) {
+                            ForEach(FocusMode.allCases, id: \.self) { mode in
+                                Text(mode.displayName).tag(mode.rawValue)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+                    }
                     
                     Divider()
                     
                     HStack {
-                        Text("Detection interval:")
-                        Slider(value: $preferences.detectionIntervalSeconds, in: 0.5...5.0, step: 0.5)
-                        Text("\(preferences.detectionIntervalSeconds, specifier: "%.1f")s")
+                        Text("Keep enabled after sharing ends")
+                        Spacer()
+                        Toggle("", isOn: $preferences.keepEnabledAfterSharing)
+                            .labelsHidden()
+                            .toggleStyle(CheckboxToggleStyle())
                     }
                 }
-                .padding(10)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 10)
             }
+            .padding(.horizontal, 20)
             
-            GroupBox(label: Text("Focus Settings")) {
-                VStack(alignment: .leading) {
-                    Picker("Focus Mode:", selection: $preferences.selectedFocusModeRawValue) {
-                        ForEach(FocusMode.allCases, id: \.self) { mode in
-                            Text(mode.displayName).tag(mode.rawValue)
-                        }
+            // Notifications section
+            HStack(spacing: 8) {
+                Image(systemName: "bell.badge")
+                    .foregroundColor(.secondary)
+                Text("Notifications")
+                    .font(.headline)
+            }
+            .padding(.leading, 20)
+            
+            GroupBox {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Text("Show notifications")
+                        Spacer()
+                        Toggle("", isOn: $preferences.showNotifications)
+                            .labelsHidden()
+                            .toggleStyle(CheckboxToggleStyle())
                     }
                     
-                    Divider()
+                    HStack {
+                        Text("Play sound")
+                            .opacity(preferences.showNotifications ? 1.0 : 0.6)
+                        Spacer()
+                        Toggle("", isOn: $preferences.enableNotificationSound)
+                            .labelsHidden()
+                            .toggleStyle(CheckboxToggleStyle())
+                            .disabled(!preferences.showNotifications)
+                            .opacity(preferences.showNotifications ? 1.0 : 0.6)
+                    }
                     
-                    Toggle("Keep enabled after sharing ends", isOn: $preferences.keepEnabledAfterSharing)
+                    HStack {
+                        Text("Show error notifications")
+                        Spacer()
+                        Toggle("", isOn: $preferences.showErrorNotifications)
+                            .labelsHidden()
+                            .toggleStyle(CheckboxToggleStyle())
+                    }
                 }
-                .padding(10)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 10)
             }
+            .padding(.horizontal, 20)
             
-            GroupBox(label: Text("Notifications")) {
-                VStack(alignment: .leading) {
-                    Toggle("Show notifications", isOn: $preferences.showNotifications)
-                    Toggle("Play sound", isOn: $preferences.enableNotificationSound)
-                        .disabled(!preferences.showNotifications)
-                    Toggle("Show error notifications", isOn: $preferences.showErrorNotifications)
-                }
-                .padding(10)
-            }
+            Spacer()
             
+            // Save button at the bottom
             HStack {
                 Spacer()
-                Button("Save") {
+                Button(action: {
                     onSave(preferences)
+                }) {
+                    Text("Save")
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                 }
+                .buttonStyle(DefaultButtonStyle())
             }
+            .padding(.bottom, 15)
+            .padding(.trailing, 20)
         }
-        .padding()
-        .frame(width: 400, height: 300)
+        .frame(width: 460, height: 480)
     }
 }
 
@@ -129,54 +197,56 @@ struct WelcomeView: View {
     @State private var launchAtLogin = true
     
     var body: some View {
-        VStack(spacing: 30) {
-            VStack(spacing: 16) {
+        VStack(spacing: 36) {
+            VStack(spacing: 20) {
                 Image(systemName: "bell.slash.circle.fill")
-                    .font(.system(size: 80))
+                    .font(.system(size: 90))
                     .foregroundColor(.accentColor)
-                    .padding(.top, 20)
+                    .padding(.top, 24)
                 
                 Text("Welcome to Hush")
-                    .font(.system(size: 28, weight: .bold))
-                    .padding(.bottom, 8)
+                    .font(.system(size: 32, weight: .bold))
                 
                 Text("Hush automatically enables Do Not Disturb mode when you're sharing your screen, protecting your privacy from notifications.")
                     .font(.system(size: 16))
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .frame(maxWidth: 500)
-                    .padding(.horizontal, 20)
+                    .lineSpacing(5)
+                    .frame(maxWidth: 600)
+                    .padding(.horizontal, 40)
             }
             
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
                 Text("Getting Started:")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                 
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 18) {
                     ForEach([
                         "Hush runs in your menu bar, quietly monitoring for screen sharing",
                         "When screen sharing is detected, Do Not Disturb is automatically enabled",
                         "When screen sharing ends, Do Not Disturb is disabled",
                         "Open preferences to customize how Hush works"
                     ], id: \.self) { text in
-                        HStack(alignment: .top, spacing: 12) {
-                            Text("•")
-                                .font(.system(size: 16, weight: .bold))
+                        HStack(alignment: .top, spacing: 14) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.accentColor)
+                                .font(.system(size: 18))
+                            
                             Text(text)
                                 .font(.system(size: 16))
                                 .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 20)
             }
-            .frame(maxWidth: 520, alignment: .leading)
-            .padding(.horizontal, 20)
+            .frame(maxWidth: 650, alignment: .leading)
+            .padding(.horizontal, 30)
             
-            VStack(spacing: 30) {
+            VStack(spacing: 32) {
                 Toggle("Launch Hush when you log in", isOn: $launchAtLogin)
                     .font(.system(size: 16))
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 30)
                     .toggleStyle(SwitchToggleStyle(tint: .accentColor))
                 
                 Button(action: {
@@ -185,19 +255,21 @@ struct WelcomeView: View {
                     Text("Get Started")
                         .font(.system(size: 18, weight: .semibold))
                         .padding(.vertical, 12)
-                        .padding(.horizontal, 60)
+                        .padding(.horizontal, 70)
                         .background(Color.accentColor)
                         .foregroundColor(.white)
                         .cornerRadius(10)
                         .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .padding(.bottom, 30)
+                .padding(.bottom, 36)
             }
         }
-        .frame(width: 600, height: 530)
+        .frame(width: 750, height: 600)
         .background(Color(NSColor.windowBackgroundColor))
         .cornerRadius(12)
     }
 } 
+
+
 

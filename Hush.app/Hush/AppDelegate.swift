@@ -458,7 +458,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if preferencesWindow == nil {
             // Create and configure the preferences window
             preferencesWindow = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+                contentRect: NSRect(x: 0, y: 0, width: 460, height: 380),
                 styleMask: [.titled, .closable, .miniaturizable],
                 backing: .buffered,
                 defer: false
@@ -515,7 +515,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Create and configure the welcome window
         let welcomeWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 530),
+            contentRect: NSRect(x: 0, y: 0, width: 750, height: 600),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
