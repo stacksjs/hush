@@ -111,13 +111,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Setup Methods
     
     private func setupIcons() {
-        // Create menu bar icons
-        iconInactive = NSImage(systemSymbolName: "bell.slash", accessibilityDescription: "Hush - Inactive")
+        // Create menu bar icons using SF Symbols
+        iconInactive = NSImage(systemSymbolName: "bell", accessibilityDescription: "Hush - Inactive")
         iconActive = NSImage(systemSymbolName: "bell.slash.fill", accessibilityDescription: "Hush - Active")
         
-        // Use template mode for proper dark/light mode rendering
-        iconInactive?.isTemplate = true
+        // Ensure proper icon configuration
+        iconInactive?.isTemplate = true  // Template mode for proper dark/light mode rendering
         iconActive?.isTemplate = true
+        
+        // Ensure icons have proper size for menu bar
+        iconInactive?.size = NSSize(width: 18, height: 18)
+        iconActive?.size = NSSize(width: 18, height: 18)
         
         // Set initial icon
         menuBarIcon = iconInactive
@@ -129,7 +133,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         if let statusButton = statusBarItem.button {
             statusButton.image = menuBarIcon
-            statusButton.toolTip = "Hush: Automatically enables Do Not Disturb when screen sharing"
+            statusButton.toolTip = "Hush: Notifications are enabled"
         }
         
         // Create and set up the menu
@@ -469,13 +473,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func updateStatusMenuItem(blocking: Bool) {
         if let statusItem = statusMenu.item(at: 0) {
-            statusItem.title = blocking ? "Status: Blocking notifications" : "Status: Not currently blocking"
+            statusItem.title = blocking ? "Status: ● Blocking notifications" : "Status: Not blocking"
+            statusItem.attributedTitle = nil
+            
+            if blocking {
+                // Create attributed string with colored bullet point
+                let text = "Status: ● Blocking notifications"
+                let attributedString = NSMutableAttributedString(string: text)
+                
+                // Find the bullet point index
+                if let bulletIndex = text.firstIndex(of: "●") {
+                    let nsRange = NSRange(text.startIndex..<text.index(after: bulletIndex), in: text)
+                    attributedString.addAttribute(.foregroundColor, value: NSColor.systemRed, range: nsRange)
+                }
+                
+                statusItem.attributedTitle = attributedString
+            }
         }
     }
     
     private func updateMenuBarIcon(active: Bool) {
         if let statusButton = statusBarItem.button {
             statusButton.image = active ? iconActive : iconInactive
+            statusButton.toolTip = active ? 
+                "Hush: Do Not Disturb is active" : 
+                "Hush: Notifications are enabled"
         }
     }
     
