@@ -21,6 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // State tracking
     var isCurrentlyBlocking = false
     var lastScreenSharingState = false
+    var isInTestMode = false
     var detectionTimer: Timer?
     var statistics = Statistics()
     
@@ -50,6 +51,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // In test mode, ensure the welcome screen is shown for UI tests
             showWelcomeScreen()
         }
+        
+        // Check for Zoom and show warning if necessary
+        checkForZoomAndWarn()
     }
     
     func applicationWillTerminate(_ notification: Notification) {
@@ -94,13 +98,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu.addItem(NSMenuItem(title: "Status: Not currently blocking", action: nil, keyEquivalent: ""))
         statusMenu.addItem(NSMenuItem.separator())
         
-        // Debug options (for testing)
-        #if DEBUG
-        let debugItem = NSMenuItem(title: "Test Screen Sharing", action: #selector(toggleTestScreenSharing(_:)), keyEquivalent: "t")
-        debugItem.target = self
-        statusMenu.addItem(debugItem)
+        // Testing option (single toggle)
+        let testItem = NSMenuItem(title: "Toggle Test Mode: Disabled", action: #selector(toggleTestScreenSharing(_:)), keyEquivalent: "t")
+        testItem.target = self
+        statusMenu.addItem(testItem)
         statusMenu.addItem(NSMenuItem.separator())
-        #endif
         
         // Focus mode submenu
         let focusModeMenu = NSMenu()
@@ -195,9 +197,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Core Functionality
     
     private func checkScreenShareStatus() {
+        // Check for Zoom periodically
+        checkForZoomAndWarn()
+        
+        // If we're in test mode, don't interfere with the test
+        if isInTestMode {
+            // Log to console for debugging
+            print("Test mode active - skipping real screen share detection")
+            return
+        }
+        
+        // Determine if screen sharing is active
         let isScreenSharing = screenShareDetector.isScreenSharing()
         
-        // Only take action if the screen sharing state has changed
+        // Specifically check if Zoom is screen sharing
+        let isZoomRunning = self.isZoomRunning()
+        
+        // Debug output - remove in production
+        print("Screen sharing state: \(isScreenSharing)")
+        print("Zoom running: \(isZoomRunning)")
+        
+        // Update status based on screen sharing state
         if isScreenSharing != lastScreenSharingState {
             lastScreenSharingState = isScreenSharing
             
@@ -206,6 +226,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 disableDoNotDisturbAfterScreenSharing()
             }
+        }
+        
+        // If status shows not blocking but we're screen sharing, fix it
+        if isScreenSharing && !isCurrentlyBlocking {
+            // Force update the UI to show blocking
+            updateStatusMenuItem(blocking: true)
+            updateMenuBarIcon(active: true)
+            
+            // Re-enable Do Not Disturb
+            enableDoNotDisturbForScreenSharing()
         }
     }
     
@@ -355,33 +385,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Launch at Login Management
     
     private func setLaunchAtLogin(enabled: Bool) {
-        if #available(macOS 13.0, *) {
-            // Use the new ServiceManagement API for macOS 13+
-            do {
-                try SMAppService.mainApp.register()
-                preferences.launchAtLogin = true
-                savePreferences()
-            } catch {
-                print("Failed to register for launch at login: \(error)")
-                showNotification(title: "Launch at Login Error", message: error.localizedDescription)
-            }
-        } else {
-            // Use the legacy method for older macOS versions
-            let identifier = "com.example.HushLauncher"
-            let launcherAppId = identifier as CFString
-            
-            if enabled {
-                if !SMLoginItemSetEnabled(launcherAppId, true) {
-                    print("Failed to enable launch at login")
+        // Wrap all code in a do-catch to prevent crashes
+        do {
+            if #available(macOS 13.0, *) {
+                // Use the new ServiceManagement API for macOS 13+
+                if enabled {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
                 }
             } else {
-                if !SMLoginItemSetEnabled(launcherAppId, false) {
-                    print("Failed to disable launch at login")
-                }
+                // Use the legacy method for older macOS versions
+                let identifier = Bundle.main.bundleIdentifier ?? "com.example.HushLauncher"
+                let launcherAppId = identifier as CFString
+                
+                // Just use SMLoginItemSetEnabled without checking for errors
+                SMLoginItemSetEnabled(launcherAppId, enabled)
             }
             
+            // Update the preference
             preferences.launchAtLogin = enabled
             savePreferences()
+            
+            print("Launch at login \(enabled ? "enabled" : "disabled") successfully")
+        } catch {
+            // Log the error but don't crash
+            print("Failed to configure launch at login: \(error.localizedDescription)")
+            
+            // Still update the preference to avoid further attempts
+            preferences.launchAtLogin = false
+            savePreferences()
+            
+            // Only show notification if error notifications are enabled
+            if preferences.showErrorNotifications {
+                showNotification(
+                    title: "Launch at Login Error",
+                    message: "Could not configure automatic startup: \(error.localizedDescription)"
+                )
+            }
         }
     }
     
@@ -522,16 +563,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         welcomeWindow.center()
         welcomeWindow.title = "Welcome to Hush"
+        welcomeWindow.isReleasedWhenClosed = true
+        
+        // Store weak reference to prevent retain cycles
+        weak var weakWindow = welcomeWindow
         
         // Create the content view
         let welcomeView = NSHostingView(rootView: WelcomeView(onComplete: { [weak self] launchAtLogin in
-            // Set launch at login preference if selected
-            if launchAtLogin {
-                self?.setLaunchAtLogin(enabled: true)
+            // Make sure we have a self reference
+            guard let self = self else {
+                DispatchQueue.main.async {
+                    weakWindow?.close()
+                }
+                return
             }
             
-            // Close the welcome window
-            welcomeWindow.close()
+            // Set launch at login preference if selected
+            if launchAtLogin {
+                // Use a lightweight Task to avoid blocking the UI
+                Task {
+                    self.setLaunchAtLogin(enabled: true)
+                }
+            }
+            
+            // Make sure to mark first launch as completed
+            self.preferences.isFirstLaunch = false
+            self.savePreferences()
+            
+            // Close the welcome window safely on the main thread
+            DispatchQueue.main.async {
+                weakWindow?.close()
+            }
+            
+            print("Welcome screen completed successfully")
         }))
         
         welcomeWindow.contentView = welcomeView
@@ -545,7 +609,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Create and configure the about window
         let aboutWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 280, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 200),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -573,20 +637,164 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // MARK: - Debug Methods
     
-    #if DEBUG
     @objc func toggleTestScreenSharing(_ sender: NSMenuItem) {
-        // Toggle between simulating screen sharing on/off
-        if lastScreenSharingState {
-            // Simulate screen sharing ended
-            lastScreenSharingState = false
-            disableDoNotDisturbAfterScreenSharing()
-            sender.title = "Test Screen Sharing (currently OFF)"
-        } else {
-            // Simulate screen sharing started
+        // Toggle test mode state
+        isInTestMode = !isInTestMode
+        
+        if isInTestMode {
+            // Enable test mode - simulate screen sharing started
             lastScreenSharingState = true
             enableDoNotDisturbForScreenSharing()
-            sender.title = "Test Screen Sharing (currently ON)"
+            sender.title = "Toggle Test Mode: ● Enabled"
+            sender.state = .on
+            
+            // Update app icon
+            updateMenuBarIcon(active: true)
+            
+            // Notify the user
+            showNotification(
+                title: "Test Mode",
+                message: "Test mode enabled - simulating screen sharing"
+            )
+            
+            // Log
+            print("Test mode enabled - simulating screen sharing")
+        } else {
+            // Disable test mode - simulate screen sharing ended
+            lastScreenSharingState = false
+            disableDoNotDisturbAfterScreenSharing()
+            sender.title = "Toggle Test Mode: Disabled"
+            sender.state = .off
+            
+            // Update app icon
+            updateMenuBarIcon(active: false)
+            
+            // Notify the user
+            showNotification(
+                title: "Test Mode",
+                message: "Test mode disabled - normal operation resumed"
+            )
+            
+            // Log
+            print("Test mode disabled - normal operation resumed")
         }
     }
-    #endif
+    
+    // MARK: - Zoom Compatibility
+    
+    /// Checks if Zoom is running and shows a warning if needed
+    private func checkForZoomAndWarn() {
+        if isZoomRunning() && !preferences.hasShownZoomWarning {
+            showZoomWarning()
+        }
+    }
+    
+    /// Detects if Zoom is currently running
+    private func isZoomRunning() -> Bool {
+        let zoomBundleID = "us.zoom.xos"
+        return NSWorkspace.shared.runningApplications.contains {
+            $0.bundleIdentifier == zoomBundleID
+        }
+    }
+    
+    /// Shows a warning dialog about Zoom's screen sharing settings
+    private func showZoomWarning() {
+        NSApp.activate(ignoringOtherApps: true)
+        
+        // Create a custom window for better styling
+        let warningWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 320),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        warningWindow.center()
+        warningWindow.isReleasedWhenClosed = true
+        warningWindow.titlebarAppearsTransparent = true
+        warningWindow.titleVisibility = .hidden
+        warningWindow.backgroundColor = NSColor(calibratedWhite: 0.9, alpha: 0.95)
+        
+        // Create main content view
+        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 320))
+        warningWindow.contentView = contentView
+        
+        // Add app icon
+        let iconView = NSImageView(frame: NSRect(x: 180, y: 240, width: 100, height: 60))
+        iconView.image = NSImage(named: "AppIcon")
+        contentView.addSubview(iconView)
+        
+        // Add title
+        let titleLabel = NSTextField(labelWithString: "Zoom Warning")
+        titleLabel.frame = NSRect(x: 20, y: 210, width: 420, height: 30)
+        titleLabel.alignment = .center
+        titleLabel.font = NSFont.boldSystemFont(ofSize: 20)
+        contentView.addSubview(titleLabel)
+        
+        // Add message
+        let messageLabel = NSTextField(wrappingLabelWithString: "To prevent a conflict with Hush, open Zoom's \"Screen Share\" preferences category and disable the \"silence notifications when sharing desktop\" option.\n\nIf you skip this, Zoom will stupidly reverse the changes Hush makes when screensharing starts. We can't all be great developers.")
+        messageLabel.frame = NSRect(x: 20, y: 100, width: 420, height: 100)
+        messageLabel.alignment = .center
+        contentView.addSubview(messageLabel)
+        
+        // Add buttons
+        let okButton = NSButton(title: "OK", target: self, action: #selector(closeZoomWarning(_:)))
+        okButton.frame = NSRect(x: 245, y: 20, width: 195, height: 32)
+        okButton.bezelStyle = .rounded
+        okButton.keyEquivalent = "\r"
+        contentView.addSubview(okButton)
+        
+        let openZoomButton = NSButton(title: "Open Zoom", target: self, action: #selector(openZoomFromWarning(_:)))
+        openZoomButton.frame = NSRect(x: 20, y: 20, width: 195, height: 32)
+        openZoomButton.bezelStyle = .rounded
+        contentView.addSubview(openZoomButton)
+        
+        // Add checkbox
+        let checkbox = NSButton(checkboxWithTitle: "Don't ask again", target: self, action: #selector(toggleDontAskAgain(_:)))
+        checkbox.frame = NSRect(x: 20, y: 60, width: 420, height: 20)
+        contentView.addSubview(checkbox)
+        
+        // Store window and checkbox for access in action methods
+        self.zoomWarningWindow = warningWindow
+        self.zoomWarningCheckbox = checkbox
+        
+        // Show the window
+        warningWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    // Temporary storage for zoom warning UI elements
+    private var zoomWarningWindow: NSWindow?
+    private var zoomWarningCheckbox: NSButton?
+    
+    @objc private func closeZoomWarning(_ sender: NSButton) {
+        // Check if "Don't ask again" was checked
+        if let checkbox = zoomWarningCheckbox, checkbox.state == .on {
+            preferences.hasShownZoomWarning = true
+            savePreferences()
+        }
+        
+        // Close the window
+        zoomWarningWindow?.close()
+        zoomWarningWindow = nil
+        zoomWarningCheckbox = nil
+    }
+    
+    @objc private func openZoomFromWarning(_ sender: NSButton) {
+        // Launch Zoom
+        NSWorkspace.shared.open(URL(string: "zoommtg://")!)
+        
+        // Check if "Don't ask again" was checked
+        if let checkbox = zoomWarningCheckbox, checkbox.state == .on {
+            preferences.hasShownZoomWarning = true
+            savePreferences()
+        }
+        
+        // Close the window
+        zoomWarningWindow?.close()
+        zoomWarningWindow = nil
+        zoomWarningCheckbox = nil
+    }
+    
+    @objc private func toggleDontAskAgain(_ sender: NSButton) {
+        // This is just a checkbox event handler, no action needed here
+    }
 } 

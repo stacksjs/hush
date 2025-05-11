@@ -30,7 +30,7 @@ struct AboutView: View {
                 .font(.caption2)
                 .padding(.top, 6)
         }
-        .frame(width: 280, height: 200)
+        .frame(width: 320, height: 200)
         .padding()
     }
 }
@@ -212,6 +212,7 @@ struct StatisticsView: View {
 struct WelcomeView: View {
     var onComplete: (Bool) -> Void
     @State private var launchAtLogin = true
+    @State private var isProcessing = false
     
     var body: some View {
         VStack(spacing: 36) {
@@ -265,28 +266,43 @@ struct WelcomeView: View {
                     .font(.system(size: 16))
                     .padding(.horizontal, 30)
                     .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                    .disabled(isProcessing)
                 
                 Button(action: {
-                    onComplete(launchAtLogin)
+                    // Set processing flag to prevent multiple clicks
+                    isProcessing = true
+                    
+                    // Delay slightly to allow UI to update
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        // Call onComplete with the launchAtLogin value
+                        onComplete(launchAtLogin)
+                    }
                 }) {
-                    Text("Get Started")
-                        .font(.system(size: 18, weight: .semibold))
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 70)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                        .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
+                    ZStack {
+                        Text("Get Started")
+                            .font(.system(size: 18, weight: .semibold))
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 70)
+                            .background(isProcessing ? Color.gray : Color.accentColor)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                            .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
+                        
+                        if isProcessing {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.5)
+                                .padding(.trailing, 8)
+                        }
+                    }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .disabled(isProcessing)
                 .padding(.bottom, 36)
             }
         }
-        .frame(width: 750, height: 600)
+        .frame(minWidth: 750, minHeight: 600)
         .background(Color(NSColor.windowBackgroundColor))
         .cornerRadius(12)
     }
 } 
-
-
-

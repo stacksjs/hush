@@ -54,7 +54,21 @@ import Cocoa
     func isScreenSharing() -> Bool {
         // Check if screen is being shared via CGWindowServer
         let screenIsBeingShared = CGSHasScreensharingClient() || CGSSessionScreenIsShared()
-        return screenIsBeingShared
+        
+        // Check if windows indicate screen sharing
+        let windowsIndicateSharing = hasScreenSharingWindows()
+        
+        // Check Zoom screen sharing specifically
+        let zoomIsScreenSharing = isZoomScreenSharing()
+        
+        // Check if apps that are likely to be screen sharing are running
+        let appIndicatesSharing = isRunningScreenSharingApp()
+        
+        // Output debugging information
+        print("ScreenShareDetector: system=\(screenIsBeingShared), windows=\(windowsIndicateSharing), zoom=\(zoomIsScreenSharing), apps=\(appIndicatesSharing)")
+        
+        // Return true if any of the detection methods indicate screen sharing
+        return screenIsBeingShared || windowsIndicateSharing || zoomIsScreenSharing || appIndicatesSharing
     }
     
     // MARK: - Periodic Capture Status Check
@@ -208,6 +222,82 @@ import Cocoa
         ]
         
         return highProbabilityApps.contains(bundleID)
+    }
+    
+    // Check if Zoom is actively screen sharing - enhanced version
+    private func isZoomScreenSharing() -> Bool {
+        // Check if Zoom is running
+        let runningApps = NSWorkspace.shared.runningApplications
+        let zoomIsRunning = runningApps.contains(where: { $0.bundleIdentifier == "us.zoom.xos" })
+        
+        if !zoomIsRunning {
+            return false
+        }
+        
+        print("Zoom is running - checking for screen sharing indicators")
+        
+        // Method 1: Check for Zoom window names that indicate sharing
+        let options = CGWindowListOption(arrayLiteral: .optionOnScreenOnly, .excludeDesktopElements)
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return false
+        }
+        
+        // Look specifically for Zoom sharing indicators
+        let zoomSharingPatterns = [
+            "You are screen sharing", 
+            "Screen Share", 
+            "Zoom Share",
+            "Share Screen",
+            "Screen Sharing",
+            "Meeting",
+            "is sharing",
+            "is sharing screen",
+            "is sharing your screen"
+        ]
+        
+        for window in windowList {
+            if let ownerName = window[kCGWindowOwnerName as String] as? String,
+               ownerName.lowercased().contains("zoom") {
+                
+                if let name = window[kCGWindowName as String] as? String {
+                    for pattern in zoomSharingPatterns {
+                        if name.lowercased().contains(pattern.lowercased()) {
+                            print("Found Zoom screen sharing window: \(name)")
+                            return true
+                        }
+                    }
+                    
+                    // Debug: print all Zoom window names to help with pattern matching
+                    print("Zoom window: \(name)")
+                }
+            }
+        }
+        
+        // Method 2: Check for screen recording permission indicators
+        // If Zoom is actively using screen recording permissions, it's likely screen sharing
+        // This would require additional permissions and is not implemented here
+        
+        // Method 3: Look for specific window sizes or patterns that might indicate sharing
+        for window in windowList {
+            if let ownerName = window[kCGWindowOwnerName as String] as? String,
+               ownerName.lowercased().contains("zoom") {
+                
+                // Check for share control bar which is typically small and at the top of the screen
+                if let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                   let height = bounds["Height"] as? CGFloat,
+                   let width = bounds["Width"] as? CGFloat,
+                   let y = bounds["Y"] as? CGFloat {
+                    
+                    // Zoom share control bar is typically 30-50px high and near the top of the screen
+                    if height < 60 && width > 300 && y < 100 {
+                        print("Found potential Zoom share control bar")
+                        return true
+                    }
+                }
+            }
+        }
+        
+        return false
     }
 }
 

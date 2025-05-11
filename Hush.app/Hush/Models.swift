@@ -31,6 +31,9 @@ struct Preferences: Codable {
     /// Whether to launch the app automatically at login
     var launchAtLogin = false
     
+    /// Whether the Zoom compatibility warning has been shown
+    var hasShownZoomWarning = false
+    
     // Optional fields for future expansion
     var lastActiveFocusMode: String?
     var customFocusModes: [String]?
