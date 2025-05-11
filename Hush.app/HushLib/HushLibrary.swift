@@ -53,10 +53,18 @@ public protocol ScreenShareDetectorProtocol {
 @available(macOS 14.0, *)
 public protocol DNDManagerProtocol: Actor {
     /// Enable Do Not Disturb mode with options
+    #if swift(>=6.0) && swift(<6.1)
+    func enableDoNotDisturb(options: FocusOptions) async throws -> Void
+    #else
     func enableDoNotDisturb(options: FocusOptions) async throws(DNDError)
+    #endif
     
     /// Disable a specific Do Not Disturb mode
+    #if swift(>=6.0) && swift(<6.1)
+    func disableDoNotDisturb(mode: FocusMode) async throws -> Void
+    #else
     func disableDoNotDisturb(mode: FocusMode) async throws(DNDError)
+    #endif
     
     /// Disable all active Focus modes
     func disableAllModes() async
@@ -122,7 +130,11 @@ public actor MockDNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
         activeModes.store(initialModes, ordering: Synchronization.MemoryOrdering.relaxed)
     }
     
+    #if swift(>=6.0) && swift(<6.1)
+    public func enableDoNotDisturb(options: FocusOptions) async throws -> Void {
+    #else
     public func enableDoNotDisturb(options: FocusOptions) async throws(DNDError) {
+    #endif
         var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[options.mode] = true
         activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
@@ -137,7 +149,11 @@ public actor MockDNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
         }
     }
     
+    #if swift(>=6.0) && swift(<6.1)
+    public func disableDoNotDisturb(mode: FocusMode) async throws -> Void {
+    #else
     public func disableDoNotDisturb(mode: FocusMode) async throws(DNDError) {
+    #endif
         var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[mode] = false
         activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)

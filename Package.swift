@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "Hush",
     platforms: [
-        .macOS(.v15)
+        .macOS(.v14)
     ],
     products: [
         .library(
@@ -16,7 +16,10 @@ let package = Package(
         .target(
             name: "HushLib",
             dependencies: [],
-            path: "Hush.app/HushLib"),
+            path: "Hush.app/HushLib",
+            swiftSettings: [
+                .enableUpcomingFeature("TypedThrows")
+            ]),
         .testTarget(
             name: "HushTests",
             dependencies: ["HushLib"],
