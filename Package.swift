@@ -16,11 +16,11 @@ let package = Package(
         .target(
             name: "HushLib",
             dependencies: [],
-            path: "Hush/HushLib"),
+            path: "Hush.app/HushLib"),
         .testTarget(
             name: "HushTests",
             dependencies: ["HushLib"],
-            path: "Hush/HushTests",
+            path: "Hush.app/HushTests",
             exclude: [
                 "AppDelegateTests.swift",
                 "DNDManagerTests.swift",

@@ -52,8 +52,7 @@ jobs:
       #     CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
 
       - name: Run tests
-        run: |
-          swift test
+        run: swift test
 
       - name: Build app
         run: bun run build
