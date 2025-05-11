@@ -1,4 +1,16 @@
 
+## v0.1.1...main
+
+[compare changes](https://github.com/stacksjs/hush/compare/v0.1.1...main)
+
+### 🏡 Chore
+
+- Install swiftlint ([8aef505](https://github.com/stacksjs/hush/commit/8aef505))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.1.0...main
 
 [compare changes](https://github.com/stacksjs/hush/compare/v0.1.0...main)
