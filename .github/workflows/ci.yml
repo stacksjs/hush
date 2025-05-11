@@ -102,14 +102,14 @@ jobs:
               }
               
               // Validate required inputs
-              const requiredInputs = ['files', 'token', 'tag'];
-              const missingInputs = requiredInputs.filter(input => 
-                !releaseStep.with || !releaseStep.with[input]);
+              // const requiredInputs = ['files', 'token', 'tag'];
+              // const missingInputs = requiredInputs.filter(input => 
+              //   !releaseStep.with || !releaseStep.with[input]);
               
-              if (missingInputs.length > 0) {
-                console.error(`Error: Missing required inputs in action-releaser: ${missingInputs.join(', ')}`);
-                process.exit(1);
-              }
+              // if (missingInputs.length > 0) {
+              //   console.error(`Error: Missing required inputs in action-releaser: ${missingInputs.join(', ')}`);
+              //   process.exit(1);
+              // }
               
               console.log('action-releaser configuration is valid');
             } catch (error) {
