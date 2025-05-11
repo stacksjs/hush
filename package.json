@@ -14,14 +14,18 @@
         "url": "https://github.com/stacksjs/hush/issues"
     },
     "keywords": [
-        "hush",
-        "focus",
-        "dnd",
-        "notifications",
-        "zoom",
         "macos",
+        "app",
         "screen",
-        "sharing"
+        "sharing",
+        "do",
+        "not",
+        "disturb",
+        "muzzle"
+    ],
+    "files": [
+        "README.md",
+        "dist/Hush.dmg"
     ],
     "scripts": {
         "build": "xcodebuild -project Hush.app/Hush.xcodeproj -scheme Hush -configuration Release CONFIGURATION_BUILD_DIR=$(pwd)/dist",

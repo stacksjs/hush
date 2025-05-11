@@ -1,5 +1,3 @@
-# wip
-
 name: Release
 
 on:
@@ -81,6 +79,16 @@ jobs:
 
       #     echo "Stapling notarization ticket to DMG"
       #     xcrun stapler staple ${{ steps.create_dmg.outputs.dmg_path }}
+
+      - name: Publish to npm
+        run: bun publish --access public
+        env:
+          BUN_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
+      - name: Create GitHub release
+        run: bunx changelogithub
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       - name: Create GitHub Release
         uses: stacksjs/action-releaser@v1.1.0
