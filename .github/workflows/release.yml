@@ -54,6 +54,9 @@ jobs:
       - name: Run tests
         run: swift test
 
+      - name: Run SwiftLint
+        run: swiftlint lint --reporter github-actions-logging Hush.app
+
       - name: Build app
         run: bun run build
 
