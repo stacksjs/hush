@@ -1,6 +1,5 @@
 {
-    "name": "hush.app",
-    "private": true,
+    "name": "hushapp",
     "type": "module",
     "version": "0.0.0",
     "description": "A simple app to block notifications when you're screen sharing.",

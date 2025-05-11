@@ -2,8 +2,8 @@
 
 Hush is a modern macOS app that automatically detects when you're screen sharing and enables Do Not Disturb mode to protect your privacy, similar to the popular Muzzle.app.
 
-[![CI Status](https://github.com/username/hush/workflows/CI/badge.svg)](https://github.com/username/hush/actions/workflows/ci.yml)
-[![Release Status](https://github.com/username/hush/workflows/Release/badge.svg)](https://github.com/username/hush/actions/workflows/release.yml)
+[![CI Status](https://github.com/stacksjs/hush/workflows/CI/badge.svg)](https://github.com/stacksjs/hush/actions/workflows/ci.yml)
+[![Release Status](https://github.com/stacksjs/hush/workflows/Release/badge.svg)](https://github.com/stacksjs/hush/actions/workflows/release.yml)
 
 ## Features
 
