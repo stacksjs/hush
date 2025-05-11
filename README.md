@@ -1,6 +1,5 @@
 <p align="center"><img src=".github/cover.jpg" alt="Social Card of this repo"></p>
 
-[![npm version][npm-version-src]][npm-version-href]
 [![CI Status](https://github.com/stacksjs/hush/workflows/CI/badge.svg)](https://github.com/stacksjs/hush/actions/workflows/ci.yml)
 [![Release Status](https://github.com/stacksjs/hush/workflows/Release/badge.svg)](https://github.com/stacksjs/hush/actions/workflows/release.yml)
 <!-- [![npm downloads][npm-downloads-src]][npm-downloads-href] -->
