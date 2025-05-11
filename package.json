@@ -40,6 +40,7 @@
         "@stacksjs/eslint-config": "^4.10.2-beta.3",
         "@types/bun": "^1.2.13",
         "bumpp": "^10.1.0",
+        "js-yaml": "^4.1.0",
         "typescript": "^5.8.3"
     },
     "lint-staged": {
