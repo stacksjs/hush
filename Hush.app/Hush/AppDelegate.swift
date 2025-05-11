@@ -206,11 +206,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func setupMonitoring() {
         // Use a timer to periodically check for screen sharing
-        // Adjustable interval based on preferences
-        let interval = preferences.detectionIntervalSeconds
+        // Ensure a sufficiently short interval to detect Zoom starting/stopping
+        let interval = 1.0  // Fixed at 1 second for responsiveness
         
         detectionTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.checkScreenShareStatus()
+        }
+        
+        // Add the timer to the runloop with common modes to ensure it runs even during UI interaction
+        if let timer = detectionTimer {
+            RunLoop.current.add(timer, forMode: .common)
         }
         
         // Trigger an initial check
@@ -266,6 +271,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Debug output
         print("Screen sharing state: \(isScreenSharing)")
         print("Zoom running: \(isZoomRunning)")
+        
+        // Check if we need to disable DND because both Zoom and screen sharing have stopped
+        if !isZoomRunning && !isScreenSharing && isCurrentlyBlocking && lastScreenSharingState {
+            print("Zoom and screen sharing both stopped - disabling DND")
+            lastScreenSharingState = false
+            disableDoNotDisturbAfterScreenSharing()
+            return
+        }
         
         // Update status based on screen sharing state
         if isScreenSharing != lastScreenSharingState {
@@ -927,12 +940,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let zoomBundleID = "us.zoom.xos"
         
         // First check: Is the Zoom app running?
-        let isZoomAppRunning = NSWorkspace.shared.runningApplications.contains {
-            $0.bundleIdentifier == zoomBundleID
-        }
+        let runningApps = NSWorkspace.shared.runningApplications
+        let zoomApp = runningApps.first(where: { $0.bundleIdentifier == zoomBundleID })
+        let isZoomAppRunning = zoomApp != nil
         
         if !isZoomAppRunning {
+            print("Zoom app is not running")
             return false
+        }
+        
+        // Log Zoom process info for debugging
+        if let zoomApp = zoomApp {
+            print("Zoom detected - PID: \(zoomApp.processIdentifier), Active: \(zoomApp.isActive)")
         }
         
         // Second check: Look for specific Zoom windows that indicate an active meeting
