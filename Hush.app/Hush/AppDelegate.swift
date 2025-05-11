@@ -24,10 +24,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var isInTestMode = false
     var detectionTimer: Timer?
     var statistics = Statistics()
+    var lastZoomCheckTime: Date?
     
     // Preferences
     var preferences = Preferences()
     var preferencesWindow: NSWindow?
+    var statisticsWindow: NSWindow?
+    
+    // Define notification types for the app
+    enum NotificationType {
+        case doNotDisturbEnabled
+        case doNotDisturbDisabled
+        case screenShareDetected
+        case zoomWarning
+        case error(String)
+        
+        var title: String {
+            switch self {
+            case .doNotDisturbEnabled:
+                return "Hush Activated"
+            case .doNotDisturbDisabled:
+                return "Hush Deactivated"
+            case .screenShareDetected:
+                return "Screen Sharing Detected"
+            case .zoomWarning:
+                return "Zoom is Running"
+            case .error:
+                return "Hush Error"
+            }
+        }
+        
+        var message: String {
+            switch self {
+            case .doNotDisturbEnabled:
+                return "Do Not Disturb enabled"
+            case .doNotDisturbDisabled:
+                return "Do Not Disturb disabled"
+            case .screenShareDetected:
+                return "Do Not Disturb has been enabled"
+            case .zoomWarning:
+                return "Zoom is running. Do Not Disturb has been enabled."
+            case .error(let message):
+                return message
+            }
+        }
+    }
     
     // MARK: - App Lifecycle
     
@@ -197,8 +238,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Core Functionality
     
     private func checkScreenShareStatus() {
-        // Check for Zoom periodically
+        // Check for Zoom and show warning if needed
         checkForZoomAndWarn()
+        
+        // Check and log Focus mode status for debugging
+        logFocusModeStatus()
         
         // If we're in test mode, don't interfere with the test
         if isInTestMode {
@@ -207,13 +251,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         
-        // Determine if screen sharing is active
-        let isScreenSharing = screenShareDetector.isScreenSharing()
-        
-        // Specifically check if Zoom is screen sharing
+        // First, check specifically for Zoom as it's a common case
         let isZoomRunning = self.isZoomRunning()
         
-        // Debug output - remove in production
+        // If Zoom detection already handled enabling DND, we can return
+        if isZoomRunning && isCurrentlyBlocking {
+            print("Zoom is running and blocking is active")
+            return
+        }
+        
+        // If no Zoom, check for other screen sharing activities
+        let isScreenSharing = screenShareDetector.isScreenSharing()
+        
+        // Debug output
         print("Screen sharing state: \(isScreenSharing)")
         print("Zoom running: \(isZoomRunning)")
         
@@ -229,7 +279,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // If status shows not blocking but we're screen sharing, fix it
-        if isScreenSharing && !isCurrentlyBlocking {
+        if (isScreenSharing || isZoomRunning) && !isCurrentlyBlocking {
             // Force update the UI to show blocking
             updateStatusMenuItem(blocking: true)
             updateMenuBarIcon(active: true)
@@ -240,49 +290,124 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func enableDoNotDisturbForScreenSharing() {
+        print("Enabling Do Not Disturb for screen sharing")
+        
         // Create options based on preferences
         var options = FocusOptions()
         options.mode = FocusMode(rawValue: preferences.selectedFocusModeRawValue) ?? .standard
         options.duration = preferences.selectedDuration
         
-        // Enable Do Not Disturb with the configured options
+        // First approach: Use DNDManager
         dndManager.enableDoNotDisturb(options: options)
         
-        // Update UI state
+        // Second approach: Direct terminal command as fallback (most reliable)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+            
+            // Check if DND is actually enabled by checking the preference directly
+            let isDNDEnabled = self.checkIsDNDEnabled()
+            
+            if !isDNDEnabled {
+                print("DNDManager approach failed, trying direct terminal commands")
+                self.enableDNDWithTerminalCommands()
+            }
+        }
+        
         isCurrentlyBlocking = true
         updateStatusMenuItem(blocking: true)
         updateMenuBarIcon(active: true)
         
         // Show notification if enabled
         if preferences.showNotifications {
-            showNotification(
-                title: "Hush Activated",
-                message: "Do Not Disturb enabled while screen sharing"
-            )
+            sendNotification(for: .doNotDisturbEnabled)
         }
         
         // Update statistics
-        statistics.screenSharingActivations += 1
         statistics.lastActivated = Date()
+        
         saveStatistics()
+    }
+    
+    // New helper method to directly enable DND with terminal commands
+    private func enableDNDWithTerminalCommands() -> Bool {
+        let commands = [
+            // Most direct approach - widely compatible
+            "defaults -currentHost write com.apple.notificationcenterui doNotDisturb -boolean true",
+            
+            // NCPrefs approach (newer macOS)
+            "defaults write com.apple.ncprefs dnd_prefs -dict userPref 1",
+            
+            // Recent macOS Focus control
+            "defaults write com.apple.controlcenter Focus -int 2",
+            
+            // Restart NotificationCenter to apply changes
+            "killall NotificationCenter &>/dev/null || true",
+            "killall ControlCenter &>/dev/null || true"
+        ]
+        
+        var success = false
+        
+        for command in commands {
+            let task = Process()
+            task.launchPath = "/bin/zsh"
+            task.arguments = ["-c", command]
+            
+            do {
+                try task.run()
+                task.waitUntilExit()
+                print("Successfully executed: \(command)")
+                success = true
+            } catch {
+                print("Failed to execute command: \(command)")
+            }
+        }
+        
+        return success && checkIsDNDEnabled()
+    }
+    
+    // Helper method to check if DND is actually enabled
+    private func checkIsDNDEnabled() -> Bool {
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = pipe
+        task.arguments = ["-c", "defaults -currentHost read com.apple.notificationcenterui doNotDisturb 2>/dev/null || echo '0'"]
+        task.launchPath = "/bin/zsh"
+        
+        do {
+            try task.run()
+            task.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                return output.contains("1")
+            }
+        } catch {
+            print("Error checking DND status: \(error)")
+        }
+        
+        return false
     }
     
     private func disableDoNotDisturbAfterScreenSharing() {
         // Only disable if it was automatically enabled (not if manually enabled)
         if isCurrentlyBlocking && !preferences.keepEnabledAfterSharing {
-            dndManager.disableDoNotDisturb(mode: FocusMode(rawValue: preferences.selectedFocusModeRawValue) ?? .standard)
+            print("Disabling Do Not Disturb after screen sharing")
             
-            // Update UI state
+            // First approach: Use DNDManager
+            dndManager.disableAllModes()
+            
+            // Second approach: Direct terminal command as fallback (most reliable)
+            disableDNDWithTerminalCommands()
+            
             isCurrentlyBlocking = false
             updateStatusMenuItem(blocking: false)
             updateMenuBarIcon(active: false)
             
             // Show notification if enabled
             if preferences.showNotifications {
-                showNotification(
-                    title: "Hush Deactivated",
-                    message: "Do Not Disturb disabled"
-                )
+                sendNotification(for: .doNotDisturbDisabled)
             }
             
             // Update statistics
@@ -293,8 +418,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 statistics.totalActiveTime += duration
                 statistics.sessionCount += 1
             }
+        }
+        
+        saveStatistics()
+    }
+    
+    // New helper method to directly disable DND with terminal commands
+    private func disableDNDWithTerminalCommands() {
+        let commands = [
+            // Most direct approach - widely compatible
+            "defaults -currentHost write com.apple.notificationcenterui doNotDisturb -boolean false",
             
-            saveStatistics()
+            // NCPrefs approach (newer macOS)
+            "defaults write com.apple.ncprefs dnd_prefs -dict userPref 0",
+            
+            // AssertionServices approach
+            "defaults write com.apple.AssertionServices assertionEnabled -bool false",
+            
+            // Restart NotificationCenter to apply changes
+            "killall NotificationCenter &>/dev/null || true"
+        ]
+        
+        for command in commands {
+            let task = Process()
+            task.launchPath = "/bin/zsh"
+            task.arguments = ["-c", command]
+            
+            do {
+                try task.run()
+                task.waitUntilExit()
+                print("Successfully executed: \(command)")
+            } catch {
+                print("Failed to execute command: \(command)")
+            }
         }
     }
     
@@ -441,6 +597,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UNUserNotificationCenter.current().add(request)
     }
     
+    // Helper method to send notifications, used by various parts of the app
+    private func sendNotification(for type: NotificationType) {
+        showNotification(title: type.title, message: type.message)
+    }
+    
     // MARK: - Menu Actions
     
     @objc func selectFocusMode(_ sender: NSMenuItem) {
@@ -533,22 +694,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showStatistics() {
         NSApp.activate(ignoringOtherApps: true)
         
-        // Create and configure the statistics window
-        let statisticsWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 240),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        statisticsWindow.center()
-        statisticsWindow.title = "Hush Statistics"
-        
-        // Create the content view
-        let statisticsView = NSHostingView(rootView: StatisticsView(statistics: statistics))
-        statisticsWindow.contentView = statisticsView
+        if statisticsWindow == nil {
+            // Create and configure the statistics window
+            statisticsWindow = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 300, height: 360),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            statisticsWindow?.center()
+            statisticsWindow?.title = "Hush Statistics"
+            
+            // Create the content view
+            let statisticsView = NSHostingView(rootView: StatisticsView(
+                statistics: statistics,
+                onRefresh: { [weak self] in
+                    self?.loadStatistics()  // Reload statistics when the view appears
+                }
+            ))
+            statisticsWindow?.contentView = statisticsView
+            
+            // Handle window close
+            statisticsWindow?.isReleasedWhenClosed = false
+        }
         
         // Show the window
-        statisticsWindow.makeKeyAndOrderFront(nil)
+        statisticsWindow?.makeKeyAndOrderFront(nil)
     }
     
     @objc func showWelcomeScreen() {
@@ -684,26 +855,144 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     /// Checks if Zoom is running and shows a warning if needed
     private func checkForZoomAndWarn() {
-        if isZoomRunning() && !preferences.hasShownZoomWarning {
-            showZoomWarning()
+        // Only check for Zoom at the interval specified in preferences
+        let now = Date()
+        if let lastCheck = lastZoomCheckTime,
+           now.timeIntervalSince(lastCheck) < preferences.zoomDetectionIntervalSeconds {
+            // Skip if we checked recently
+            return
+        }
+        
+        // Update the last check time
+        lastZoomCheckTime = now
+        
+        // Run a full Zoom detection
+        if isZoomRunning() {
+            // If we're not already blocking and not in test mode, enable DND automatically
+            if !isCurrentlyBlocking && !isInTestMode {
+                print("Zoom detected - automatically enabling DND")
+                enableDoNotDisturbForZoom()
+            }
+        }
+    }
+    
+    /// Special method to enable DND specifically for Zoom
+    private func enableDoNotDisturbForZoom() {
+        print("Enabling Do Not Disturb for Zoom")
+        
+        // Create options based on preferences
+        var options = FocusOptions()
+        options.mode = FocusMode(rawValue: preferences.selectedFocusModeRawValue) ?? .standard
+        options.duration = preferences.selectedDuration
+        
+        // First try direct terminal commands for maximum reliability
+        let terminalSuccess = enableDNDWithTerminalCommands()
+        print("Terminal command approach for Zoom: \(terminalSuccess ? "succeeded" : "failed")")
+        
+        // Use DNDManager as backup approach
+        dndManager.enableDoNotDisturb(options: options)
+        
+        // Set state flags
+        isCurrentlyBlocking = true
+        updateStatusMenuItem(blocking: true)
+        updateMenuBarIcon(active: true)
+        
+        // No notification - we want this to be silent
+        
+        // Update statistics
+        statistics.lastActivated = Date()
+        statistics.zoomActivations += 1
+        
+        saveStatistics()
+        
+        // Verify DND is actually enabled and retry if needed
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+            
+            // Check if DND is actually enabled
+            let isDNDEnabled = self.checkIsDNDEnabled()
+            
+            if !isDNDEnabled {
+                print("DND not successfully enabled for Zoom - retrying with direct terminal commands")
+                
+                // Try one more time with direct terminal commands
+                let success = self.enableDNDWithTerminalCommands()
+                print("DND retry with terminal commands: \(success ? "succeeded" : "failed")")
+            }
         }
     }
     
     /// Detects if Zoom is currently running
     private func isZoomRunning() -> Bool {
         let zoomBundleID = "us.zoom.xos"
-        return NSWorkspace.shared.runningApplications.contains {
+        
+        // First check: Is the Zoom app running?
+        let isZoomAppRunning = NSWorkspace.shared.runningApplications.contains {
             $0.bundleIdentifier == zoomBundleID
         }
+        
+        if !isZoomAppRunning {
+            return false
+        }
+        
+        // Second check: Look for specific Zoom windows that indicate an active meeting
+        let foundZoomMeeting = checkForZoomMeetingWindows()
+        
+        print("Zoom detection: App running=\(isZoomAppRunning), Meeting windows=\(foundZoomMeeting)")
+        
+        // Return true if Zoom is running AND we either found meeting windows
+        // OR we just want to trigger on Zoom running regardless of meeting windows
+        return isZoomAppRunning
+    }
+    
+    /// Helper method to look for specific Zoom windows that indicate an active meeting
+    private func checkForZoomMeetingWindows() -> Bool {
+        // Get all on-screen windows
+        let options = CGWindowListOption(arrayLiteral: .optionOnScreenOnly, .excludeDesktopElements)
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return false
+        }
+        
+        // Look for windows with names that indicate an active Zoom meeting
+        let zoomMeetingPatterns = [
+            "Zoom Meeting",
+            "Meeting",
+            "is sharing screen",
+            "screen sharing",
+            "Share Screen",
+            "Participants",
+            "Chat",
+            "Zoom"
+        ]
+        
+        for window in windowList {
+            if let ownerName = window[kCGWindowOwnerName as String] as? String,
+               ownerName.lowercased().contains("zoom") {
+                
+                if let name = window[kCGWindowName as String] as? String {
+                    for pattern in zoomMeetingPatterns {
+                        if name.lowercased().contains(pattern.lowercased()) {
+                            print("Found Zoom meeting window: \(name)")
+                            return true
+                        }
+                    }
+                    
+                    // Debug: log all Zoom window names to help with pattern matching
+                    print("Zoom window found: \(name)")
+                }
+            }
+        }
+        
+        return false
     }
     
     /// Shows a warning dialog about Zoom's screen sharing settings
     private func showZoomWarning() {
         NSApp.activate(ignoringOtherApps: true)
         
-        // Create a custom window for better styling
+        // Create a custom window for better styling - make it narrower (400px instead of 460px)
         let warningWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 320),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -715,42 +1004,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         warningWindow.backgroundColor = NSColor(calibratedWhite: 0.9, alpha: 0.95)
         
         // Create main content view
-        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 320))
+        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 320))
         warningWindow.contentView = contentView
         
-        // Add app icon
-        let iconView = NSImageView(frame: NSRect(x: 180, y: 240, width: 100, height: 60))
-        iconView.image = NSImage(named: "AppIcon")
+        // Add app icon - center it in the narrower window
+        let iconView = NSImageView(frame: NSRect(x: 165, y: 240, width: 70, height: 70))
+        iconView.image = NSImage(named: "AppIcon") ?? NSImage(systemSymbolName: "hand.raised.slash", accessibilityDescription: "Hush")
         contentView.addSubview(iconView)
         
         // Add title
         let titleLabel = NSTextField(labelWithString: "Zoom Warning")
-        titleLabel.frame = NSRect(x: 20, y: 210, width: 420, height: 30)
+        titleLabel.frame = NSRect(x: 20, y: 210, width: 360, height: 30)
         titleLabel.alignment = .center
         titleLabel.font = NSFont.boldSystemFont(ofSize: 20)
         contentView.addSubview(titleLabel)
         
         // Add message
-        let messageLabel = NSTextField(wrappingLabelWithString: "To prevent a conflict with Hush, open Zoom's \"Screen Share\" preferences category and disable the \"silence notifications when sharing desktop\" option.\n\nIf you skip this, Zoom will stupidly reverse the changes Hush makes when screensharing starts. We can't all be great developers.")
-        messageLabel.frame = NSRect(x: 20, y: 100, width: 420, height: 100)
+        let messageLabel = NSTextField(wrappingLabelWithString: "To prevent a conflict with Hush, open Zoom's \"Screen Share\" preferences category and disable the \"silence notifications when sharing desktop\" option.")
+        messageLabel.frame = NSRect(x: 50, y: 100, width: 300, height: 100)
         messageLabel.alignment = .center
         contentView.addSubview(messageLabel)
         
-        // Add buttons
+        // Add buttons side by side with minimal spacing
+        let buttonWidth = 145
+        let buttonHeight = 32
+        let buttonSpacing = 10
+        let buttonsY = 20
+        let totalButtonWidth = (buttonWidth * 2) + buttonSpacing
+        let startX = (400 - totalButtonWidth) / 2
+        
+        let openZoomButton = NSButton(title: "Open Zoom", target: self, action: #selector(openZoomFromWarning(_:)))
+        openZoomButton.frame = NSRect(x: startX, y: buttonsY, width: buttonWidth, height: buttonHeight)
+        openZoomButton.bezelStyle = .rounded
+        contentView.addSubview(openZoomButton)
+        
         let okButton = NSButton(title: "OK", target: self, action: #selector(closeZoomWarning(_:)))
-        okButton.frame = NSRect(x: 245, y: 20, width: 195, height: 32)
+        okButton.frame = NSRect(x: startX + buttonWidth + buttonSpacing, y: buttonsY, width: buttonWidth, height: buttonHeight)
         okButton.bezelStyle = .rounded
         okButton.keyEquivalent = "\r"
         contentView.addSubview(okButton)
         
-        let openZoomButton = NSButton(title: "Open Zoom", target: self, action: #selector(openZoomFromWarning(_:)))
-        openZoomButton.frame = NSRect(x: 20, y: 20, width: 195, height: 32)
-        openZoomButton.bezelStyle = .rounded
-        contentView.addSubview(openZoomButton)
-        
         // Add checkbox
         let checkbox = NSButton(checkboxWithTitle: "Don't ask again", target: self, action: #selector(toggleDontAskAgain(_:)))
-        checkbox.frame = NSRect(x: 20, y: 60, width: 420, height: 20)
+        checkbox.frame = NSRect(x: 50, y: 60, width: 300, height: 20)
+        checkbox.alignment = .center
         contentView.addSubview(checkbox)
         
         // Store window and checkbox for access in action methods
@@ -767,8 +1064,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc private func closeZoomWarning(_ sender: NSButton) {
         // Check if "Don't ask again" was checked
-        if let checkbox = zoomWarningCheckbox, checkbox.state == .on {
+        let dontAskAgain = zoomWarningCheckbox?.state == .on
+        
+        // Only save preferences if user checked the checkbox
+        if dontAskAgain {
             preferences.hasShownZoomWarning = true
+            savePreferences()
+        } else {
+            // If they didn't check it, we'll show the warning again later
+            preferences.hasShownZoomWarning = false
             savePreferences()
         }
         
@@ -779,14 +1083,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func openZoomFromWarning(_ sender: NSButton) {
-        // Launch Zoom
-        NSWorkspace.shared.open(URL(string: "zoommtg://")!)
-        
         // Check if "Don't ask again" was checked
-        if let checkbox = zoomWarningCheckbox, checkbox.state == .on {
+        let dontAskAgain = zoomWarningCheckbox?.state == .on
+        
+        // Only save preferences if user checked the checkbox
+        if dontAskAgain {
             preferences.hasShownZoomWarning = true
             savePreferences()
+        } else {
+            // If they didn't check it, we'll show the warning again later
+            preferences.hasShownZoomWarning = false
+            savePreferences()
         }
+        
+        // Launch Zoom
+        NSWorkspace.shared.open(URL(string: "zoommtg://")!)
         
         // Close the window
         zoomWarningWindow?.close()
@@ -796,5 +1107,193 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc private func toggleDontAskAgain(_ sender: NSButton) {
         // This is just a checkbox event handler, no action needed here
+    }
+    
+    // Diagnostic function to check and log Focus mode status
+    private func logFocusModeStatus() {
+        // Check if the system thinks Focus mode is active
+        let blockingState = isCurrentlyBlocking
+        let dndActive = dndManager.isAnyModeActive()
+        
+        print("Focus Mode Diagnostics:")
+        print("- App thinks Focus is active: \(blockingState)")
+        print("- DNDManager reports Focus active: \(dndActive)")
+        
+        // Check status via System Events AppleScript to verify UI state
+        let script = """
+        tell application "System Events"
+            try
+                -- Try to get Focus menu bar status
+                if exists menu bar item "Focus" of menu bar 1 then
+                    set focusMenu to menu bar item "Focus" of menu bar 1
+                    set focusMenuTitle to title of focusMenu
+                    return "Focus menu: " & focusMenuTitle
+                else
+                    return "No Focus menu found"
+                end if
+            end try
+        end tell
+        """
+        
+        let appleScript = NSAppleScript(source: script)
+        var error: NSDictionary?
+        if let result = appleScript?.executeAndReturnError(&error) {
+            print("- System Focus status: \(result.stringValue ?? "unknown")")
+        } else if let error = error {
+            print("- Error checking system Focus: \(error)")
+        }
+        
+        // Log inconsistencies to help debugging
+        if blockingState != dndActive {
+            print("⚠️ Inconsistency detected: App state doesn't match DNDManager state")
+            
+            // Try to fix the inconsistency
+            if !blockingState && dndActive {
+                // DNDManager thinks Focus is active but app doesn't - update app state
+                print("Fixing inconsistency: Updating app state to match DNDManager")
+                isCurrentlyBlocking = true
+                updateStatusMenuItem(blocking: true)
+                updateMenuBarIcon(active: true)
+            } else if blockingState && !dndActive {
+                // App thinks Focus is active but DNDManager doesn't - re-enable
+                print("Fixing inconsistency: Re-enabling Focus mode")
+                enableDoNotDisturbForScreenSharing()
+            }
+        }
+    }
+    
+    private func shouldShowZoomWarning() -> Bool {
+        // Don't show if user chose to never show warnings
+        if preferences.neverShowZoomWarning {
+            return false
+        }
+        
+        // Only show warning once every 30 minutes to avoid spamming
+        let thirtyMinutesAgo = Date().addingTimeInterval(-1800)
+        let showAgain = preferences.lastZoomWarningTime == nil || 
+                       preferences.lastZoomWarningTime! < thirtyMinutesAgo
+        
+        return showAgain
+    }
+    
+    private func showZoomWarningWindow() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 170),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        window.center()
+        window.title = "Zoom is Running"
+        
+        let contentView = NSHostingView(rootView: ZoomWarningView(
+            preferences: preferences,
+            onPreferenceChange: { [weak self] updatedPrefs in
+                // Update preferences when changed by the view
+                self?.preferences = updatedPrefs
+                self?.savePreferences()
+            },
+            onClose: { [weak self, weak window] in
+                window?.close()
+                self?.zoomWarningWindow = nil
+            },
+            onEnableDND: { [weak self, weak window] in
+                self?.toggleDNDState()
+                window?.close()
+                self?.zoomWarningWindow = nil
+            }
+        ))
+        
+        window.contentView = contentView
+        window.isReleasedWhenClosed = false
+        
+        window.makeKeyAndOrderFront(nil)
+        
+        // Record the time we showed the warning
+        preferences.lastZoomWarningTime = Date()
+        savePreferences()
+        
+        zoomWarningWindow = window
+    }
+    
+    @objc private func toggleDNDState() {
+        if isCurrentlyBlocking {
+            if dndManager.isAnyModeActive() {
+                dndManager.disableAllModes()
+                disableDNDWithTerminalCommands()
+            }
+            
+            isCurrentlyBlocking = false
+            updateStatusMenuItem(blocking: false)
+            updateMenuBarIcon(active: false)
+            
+            // Show notification if enabled
+            if preferences.showNotifications {
+                sendNotification(for: .doNotDisturbDisabled)
+            }
+            
+            // Update statistics
+            statistics.lastDeactivated = Date()
+            statistics.manualDisables += 1
+            
+            if let lastActivated = statistics.lastActivated {
+                let duration = Date().timeIntervalSince(lastActivated)
+                statistics.totalActiveTime += duration
+                statistics.sessionCount += 1
+            }
+        } else {
+            // Create options based on preferences
+            var options = FocusOptions()
+            options.mode = FocusMode(rawValue: preferences.selectedFocusModeRawValue) ?? .standard
+            options.duration = preferences.selectedDuration
+            
+            // Enable Do Not Disturb
+            dndManager.enableDoNotDisturb(options: options)
+            
+            // Also try direct terminal approach for reliability
+            enableDNDWithTerminalCommands()
+            
+            isCurrentlyBlocking = true
+            updateStatusMenuItem(blocking: true)
+            updateMenuBarIcon(active: true)
+            
+            // Show notification if enabled
+            if preferences.showNotifications {
+                sendNotification(for: .doNotDisturbEnabled)
+            }
+            
+            // Update statistics
+            statistics.lastActivated = Date()
+            statistics.manualActivations += 1
+        }
+        
+        saveStatistics()
+    }
+    
+    private func handleUncaughtException(exception: NSException) {
+        let errorMessage = "Uncaught exception: \(exception.name). \(exception.reason ?? "No reason provided")"
+        print("Error: \(errorMessage)")
+        
+        // Log the error to console
+        NSLog("Hush Error: %@", errorMessage)
+        
+        // Show a notification to the user
+        sendNotification(for: .error(errorMessage))
+        
+        // Attempt to save any unsaved state to prevent data loss
+        savePreferences()
+        saveStatistics()
+    }
+    
+    // MARK: - Lifecycle
+    
+    deinit {
+        // Clean up resources
+        preferencesWindow?.close()
+        preferencesWindow = nil
+        
+        statisticsWindow?.close()
+        statisticsWindow = nil
     }
 } 

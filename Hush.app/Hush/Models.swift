@@ -34,6 +34,30 @@ struct Preferences: Codable {
     /// Whether the Zoom compatibility warning has been shown
     var hasShownZoomWarning = false
     
+    /// When the Zoom warning was last shown
+    var lastZoomWarningTime: Date?
+    
+    /// Whether to never show the Zoom warning again
+    var neverShowZoomWarning = true
+    
+    /// Whether to automatically enable DND when Zoom is detected
+    var automaticallyEnable = true
+    
+    /// Maximum number of retries for DND activation
+    var maxDNDActivationRetries = 3
+    
+    /// Whether to prioritize terminal commands over AppleScript
+    var useTerminalCommandsPrimarily = true
+    
+    /// Timeout in seconds for DND activation verification
+    var dndActivationTimeoutSeconds = 2.0
+    
+    /// Whether to use additional DND verification methods
+    var useAdditionalVerification = true
+    
+    /// Number of seconds to wait between detection checks
+    var zoomDetectionIntervalSeconds = 5.0
+    
     // Optional fields for future expansion
     var lastActiveFocusMode: String?
     var customFocusModes: [String]?
@@ -43,6 +67,15 @@ struct Preferences: Codable {
 struct Statistics: Codable {
     /// The number of times screen sharing has been activated
     var screenSharingActivations = 0
+    
+    /// The number of times Zoom has triggered DND activation
+    var zoomActivations = 0
+    
+    /// The number of times the user has manually activated DND
+    var manualActivations = 0
+    
+    /// The number of times the user has manually disabled DND
+    var manualDisables = 0
     
     /// The total active time in seconds
     var totalActiveTime: TimeInterval = 0

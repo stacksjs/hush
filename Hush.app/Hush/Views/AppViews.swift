@@ -171,6 +171,7 @@ struct PreferencesView: View {
 
 struct StatisticsView: View {
     let statistics: Statistics
+    var onRefresh: (() -> Void)? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -204,8 +205,11 @@ struct StatisticsView: View {
                 }
             }
         }
-        .frame(width: 300, height: 240)
+        .frame(width: 300, height: 360)
         .padding()
+        .onAppear {
+            onRefresh?()
+        }
     }
 }
 
@@ -304,5 +308,61 @@ struct WelcomeView: View {
         .frame(minWidth: 750, minHeight: 600)
         .background(Color(NSColor.windowBackgroundColor))
         .cornerRadius(12)
+    }
+}
+
+struct ZoomWarningView: View {
+    // Use value type instead of binding
+    var preferences: Preferences
+    var onPreferenceChange: (Preferences) -> Void
+    var onClose: () -> Void
+    var onEnableDND: () -> Void
+    @State private var dontAskAgain = false
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            VStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "video.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.accentColor)
+                    
+                    Text("Zoom is Running")
+                        .font(.headline)
+                }
+                .padding(.top, 12)
+                
+                Text("Zoom is detected. Do Not Disturb mode will be enabled automatically.")
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+                    .padding(.horizontal, 20)
+            }
+            
+            HStack(spacing: 12) {
+                Button(action: {
+                    // Always update preferences
+                    var updatedPrefs = preferences
+                    updatedPrefs.neverShowZoomWarning = true
+                    updatedPrefs.automaticallyEnable = true
+                    onPreferenceChange(updatedPrefs)
+                    
+                    // Enable DND and close
+                    onEnableDND()
+                }) {
+                    Text("Enable DND")
+                        .frame(minWidth: 120)
+                        .bold()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(DefaultButtonStyle())
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+        }
+        .frame(width: 320)
+        .onAppear {
+            // Enable DND immediately
+            onEnableDND()
+        }
     }
 } 
