@@ -1,9 +1,14 @@
-# Hush
+<p align="center"><img src=".github/cover.jpg" alt="Social Card of this repo"></p>
 
-Hush is a modern macOS app that automatically detects when you're screen sharing and enables Do Not Disturb mode to protect your privacy, similar to the popular Muzzle.app.
-
+[![npm version][npm-version-src]][npm-version-href]
 [![CI Status](https://github.com/stacksjs/hush/workflows/CI/badge.svg)](https://github.com/stacksjs/hush/actions/workflows/ci.yml)
 [![Release Status](https://github.com/stacksjs/hush/workflows/Release/badge.svg)](https://github.com/stacksjs/hush/actions/workflows/release.yml)
+<!-- [![npm downloads][npm-downloads-src]][npm-downloads-href] -->
+<!-- [![Codecov][codecov-src]][codecov-href] -->
+
+# Hush
+
+> A modern macOS app that automatically detects when you're screen sharing and enables Do Not Disturb mode to protect your privacy.
 
 ## Features
 
@@ -26,7 +31,7 @@ Hush uses multiple methods to reliably detect screen sharing:
 
 ## Requirements
 
-- macOS 12.0 or later (Monterey and above)
+- macOS 13.0 or later (Ventura and above)
 - Xcode 16.0 or later (for development)
 - Swift 6.0
 
@@ -135,15 +140,3 @@ We would like to extend our thanks to the following sponsors for funding Stacks 
 The MIT License (MIT). Please see [LICENSE](LICENSE.md) for more information.
 
 Made with 💙
-
-## Installation
-
-### Direct Download
-
-Download the latest DMG from the [Releases page](https://github.com/username/hush/releases).
-
-### Homebrew
-
-```bash
-brew install username/tap/hush
-```
