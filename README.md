@@ -39,22 +39,6 @@ Hush uses multiple methods to reliably detect screen sharing:
 1. Open `Hush.xcodeproj` in Xcode 16 or later
 2. Build and run the project
 
-### Release Process
-
-Our release process is automated using GitHub Actions and the [action-releaser](https://github.com/owner/action-releaser) GitHub Action:
-
-1. Update the version in your project files and `CHANGELOG.md`
-2. Create and push a new git tag (e.g., `git tag v1.0.0 && git push origin v1.0.0`)
-3. The Release workflow automatically:
-   - Builds the macOS app
-   - Creates a signed and notarized DMG
-   - Creates a GitHub Release with the DMG attached
-   - Updates the Homebrew formula (if configured)
-
-The action-releaser provides flexible configuration options for customizing the release process. See the `.github/workflows/release.yml` file for details.
-
-For more information on the release process, see the [Release Guide](.github/RELEASE.md).
-
 ## Usage
 
 1. Hush runs in your menu bar
