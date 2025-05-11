@@ -74,9 +74,6 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
     // Enable Do Not Disturb mode with options
     #if swift(>=6.0) && swift(<6.1)
     public func enableDoNotDisturb(options: FocusOptions) async throws -> Void {
-    #else
-    public func enableDoNotDisturb(options: FocusOptions) async throws(DNDError) {
-    #endif
         // Update active modes atomically
         var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[options.mode] = true
@@ -139,6 +136,71 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
             throw error
         }
     }
+    #else
+    public func enableDoNotDisturb(options: FocusOptions) async throws(DNDError) {
+        // Update active modes atomically
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
+        modes[options.mode] = true
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
+        
+        // Post notification about starting to change mode (on main thread)
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: Self.focusModeChangedNotification, 
+                object: self,
+                userInfo: ["mode": options.mode.rawValue, "active": true, "starting": true]
+            )
+        }
+        
+        // Cancel any existing timer for this mode
+        if let timer = activeTimers[options.mode] {
+            timer.invalidate()
+            activeTimers[options.mode] = nil
+        }
+        
+        // Create AppleScript based on the selected mode
+        let appleScript = createFocusEnableScript(for: options.mode)
+        
+        // Run the script
+        do {
+            try await runAppleScriptWithErrorHandling(appleScript)
+            lastSuccessTime = Date()
+            
+            // Set a timer to disable after duration if specified
+            if let duration = options.duration {
+                // Creating timers must be done on the main thread
+                await MainActor.run {
+                    let timer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
+                        // Must explicitly create a Task since timer callback isn't async
+                        Task {
+                            // Using try? since the timer callback can't propagate errors
+                            if let self {
+                                try? await self.disableDoNotDisturb(mode: options.mode)
+                            }
+                        }
+                    }
+                    
+                    // Access activeTimers on the actor's isolation context
+                    Task {
+                        await self.storeTimer(timer, forMode: options.mode)
+                    }
+                }
+            }
+            
+            // Post notification about successful mode change
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: Self.focusModeChangedNotification, 
+                    object: self,
+                    userInfo: ["mode": options.mode.rawValue, "active": true, "success": true]
+                )
+            }
+        } catch {
+            await handleEnableError(error, for: options)
+            throw DNDError.scriptExecutionFailed(error.localizedDescription)
+        }
+    }
+    #endif
     
     // Helper method to store timer in the actor's context
     private func storeTimer(_ timer: Timer, forMode mode: FocusMode) {
@@ -148,9 +210,6 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
     // Disable a specific Do Not Disturb mode
     #if swift(>=6.0) && swift(<6.1)
     public func disableDoNotDisturb(mode: FocusMode) async throws -> Void {
-    #else
-    public func disableDoNotDisturb(mode: FocusMode) async throws(DNDError) {
-    #endif
         // Update active modes atomically
         var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[mode] = false
@@ -181,6 +240,39 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
             throw error
         }
     }
+    #else
+    public func disableDoNotDisturb(mode: FocusMode) async throws(DNDError) {
+        // Update active modes atomically
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
+        modes[mode] = false
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
+        
+        // Cancel any timer for this mode
+        if let timer = activeTimers[mode] {
+            timer.invalidate()
+            activeTimers[mode] = nil
+        }
+        
+        // Create and run AppleScript to disable the mode
+        let appleScript = createFocusDisableScript(for: mode)
+        
+        do {
+            try await runAppleScriptWithErrorHandling(appleScript)
+            
+            // Post notification about mode change
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: Self.focusModeChangedNotification, 
+                    object: self,
+                    userInfo: ["mode": mode.rawValue, "active": false]
+                )
+            }
+        } catch {
+            await handleDisableError(error, for: mode)
+            throw DNDError.scriptExecutionFailed(error.localizedDescription)
+        }
+    }
+    #endif
     
     // Disable all active Focus modes
     public func disableAllModes() async {
@@ -262,14 +354,11 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
     // Run AppleScript with proper error handling
     #if swift(>=6.0) && swift(<6.1)
     private func runAppleScriptWithErrorHandling(_ script: String) async throws -> Void {
-    #else
-    private func runAppleScriptWithErrorHandling(_ script: String) async throws(DNDError) {
-    #endif
         // Create AppleScript
         let appleScript = NSAppleScript(source: script)
         
         // Execute the script on the MainActor since NSAppleScript isn't thread-safe
-        let (success, errorMessage, errorCode) = await MainActor.run {
+        let (success, errorMessage, errorCode) = await MainActor.run { () -> (Bool, String, Int) in
             var errorDict: NSDictionary?
             let result = appleScript?.executeAndReturnError(&errorDict)
             
@@ -293,6 +382,37 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
             }
         }
     }
+    #else
+    private func runAppleScriptWithErrorHandling(_ script: String) async throws(DNDError) {
+        // Create AppleScript
+        let appleScript = NSAppleScript(source: script)
+        
+        // Execute the script on the MainActor since NSAppleScript isn't thread-safe
+        let (success, errorMessage, errorCode) = await MainActor.run { () -> (Bool, String, Int) in
+            var errorDict: NSDictionary?
+            let result = appleScript?.executeAndReturnError(&errorDict)
+            
+            // Extract relevant error info as simple types
+            let errorMsg = errorDict?["NSAppleScriptErrorMessage"] as? String ?? "Unknown error"
+            let code = errorDict?["NSAppleScriptErrorNumber"] as? Int ?? -1
+            
+            return (result != nil, errorMsg, code)
+        }
+        
+        // Handle errors with the simple types
+        if !success {
+            // Map to appropriate DNDError type
+            switch errorCode {
+            case -1719: // Permission error
+                throw DNDError.permissionDenied
+            case -1728: // Service unavailable
+                throw DNDError.systemServiceUnavailable
+            default:
+                throw DNDError.scriptExecutionFailed(errorMessage)
+            }
+        }
+    }
+    #endif
     
     // MARK: - Debug Support
     

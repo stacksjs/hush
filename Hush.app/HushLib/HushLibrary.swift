@@ -132,9 +132,6 @@ public actor MockDNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
     
     #if swift(>=6.0) && swift(<6.1)
     public func enableDoNotDisturb(options: FocusOptions) async throws -> Void {
-    #else
-    public func enableDoNotDisturb(options: FocusOptions) async throws(DNDError) {
-    #endif
         var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[options.mode] = true
         activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
@@ -148,12 +145,25 @@ public actor MockDNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
             )
         }
     }
+    #else
+    public func enableDoNotDisturb(options: FocusOptions) async throws(DNDError) {
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
+        modes[options.mode] = true
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
+        
+        // Post notification (must be done on main thread)
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: Self.focusModeChangedNotification,
+                object: self,
+                userInfo: ["mode": options.mode.rawValue, "active": true]
+            )
+        }
+    }
+    #endif
     
     #if swift(>=6.0) && swift(<6.1)
     public func disableDoNotDisturb(mode: FocusMode) async throws -> Void {
-    #else
-    public func disableDoNotDisturb(mode: FocusMode) async throws(DNDError) {
-    #endif
         var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[mode] = false
         activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
@@ -167,6 +177,22 @@ public actor MockDNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
             )
         }
     }
+    #else
+    public func disableDoNotDisturb(mode: FocusMode) async throws(DNDError) {
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
+        modes[mode] = false
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
+        
+        // Post notification (must be done on main thread)
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: Self.focusModeChangedNotification,
+                object: self,
+                userInfo: ["mode": mode.rawValue, "active": false]
+            )
+        }
+    }
+    #endif
     
     public func disableAllModes() async {
         var allInactive: [FocusMode: Bool] = [:]
