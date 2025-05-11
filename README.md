@@ -30,7 +30,7 @@ Hush uses multiple methods to reliably detect screen sharing:
 
 ## Requirements
 
-- macOS 13.0 or later _(Ventura and above)_
+- macOS 15.0 or later _(Sequoia and above)_
 - Xcode 16.0 or later _(for development)_
 - Swift 6.0
 
