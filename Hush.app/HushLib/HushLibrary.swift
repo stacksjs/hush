@@ -1,5 +1,4 @@
 import Foundation
-import Synchronization
 
 // MARK: - Core Models
 
@@ -73,10 +72,10 @@ public protocol DNDManagerProtocol: Actor {
 
 /// A thread-safe implementation of screen share detector for Swift 6
 @available(macOS 14.0, *)
-@DebugDescription
-public actor MockScreenShareDetector: ScreenShareDetectorProtocol {
-    private let isDetecting = Atomic<Bool>(false)
-    private let simulatedScreenSharing = Atomic<Bool>(false)
+public actor MockScreenShareDetector: ScreenShareDetectorProtocol, CustomDebugStringConvertible {
+    // Properties marked as nonisolated can be accessed from any context
+    nonisolated private let isDetecting = Synchronization.Atomic<Bool>(false)
+    nonisolated private let simulatedScreenSharing = Synchronization.Atomic<Bool>(false)
     
     public init(autoStart: Bool = false) {
         if autoStart {
@@ -85,19 +84,22 @@ public actor MockScreenShareDetector: ScreenShareDetectorProtocol {
     }
     
     public func startMonitoring() async {
-        isDetecting.store(true, ordering: .relaxed)
+        isDetecting.store(true, ordering: Synchronization.MemoryOrdering.relaxed)
     }
     
     public func stopMonitoring() async {
-        isDetecting.store(false, ordering: .relaxed)
+        isDetecting.store(false, ordering: Synchronization.MemoryOrdering.relaxed)
     }
     
+    // Using nonisolated keyword makes this function callable from any context
     public nonisolated func isScreenSharing() -> Bool {
-        return simulatedScreenSharing.load(ordering: .relaxed)
+        // Accessing simulatedScreenSharing is safe because Atomic provides its own thread safety
+        return simulatedScreenSharing.load(ordering: Synchronization.MemoryOrdering.relaxed)
     }
     
-    public func simulateScreenSharing(_ isSharing: Bool) {
-        simulatedScreenSharing.store(isSharing, ordering: .relaxed)
+    // Made nonisolated for easier testing
+    nonisolated public func simulateScreenSharing(_ isSharing: Bool) {
+        simulatedScreenSharing.store(isSharing, ordering: Synchronization.MemoryOrdering.relaxed)
     }
     
     // Custom debug description
@@ -108,9 +110,8 @@ public actor MockScreenShareDetector: ScreenShareDetectorProtocol {
 
 /// A Swift 6 compatible mock implementation of DND manager using actors
 @available(macOS 14.0, *)
-@DebugDescription
-public actor MockDNDManager: DNDManagerProtocol {
-    private let activeModes = Atomic<[FocusMode: Bool]>([:])
+public actor MockDNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
+    nonisolated private let activeModes = Synchronization.Atomic<[FocusMode: Bool]>([:])
     public static let focusModeChangedNotification = Notification.Name("MockFocusModeChangedNotification")
     
     public init() {
@@ -118,13 +119,13 @@ public actor MockDNDManager: DNDManagerProtocol {
         for mode in FocusMode.allCases {
             initialModes[mode] = false
         }
-        activeModes.store(initialModes, ordering: .relaxed)
+        activeModes.store(initialModes, ordering: Synchronization.MemoryOrdering.relaxed)
     }
     
     public func enableDoNotDisturb(options: FocusOptions) async throws(DNDError) {
-        var modes = activeModes.load(ordering: .relaxed)
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[options.mode] = true
-        activeModes.store(modes, ordering: .relaxed)
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
         
         // Post notification (must be done on main thread)
         await MainActor.run {
@@ -137,9 +138,9 @@ public actor MockDNDManager: DNDManagerProtocol {
     }
     
     public func disableDoNotDisturb(mode: FocusMode) async throws(DNDError) {
-        var modes = activeModes.load(ordering: .relaxed)
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[mode] = false
-        activeModes.store(modes, ordering: .relaxed)
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
         
         // Post notification (must be done on main thread)
         await MainActor.run {
@@ -156,22 +157,22 @@ public actor MockDNDManager: DNDManagerProtocol {
         for mode in FocusMode.allCases {
             allInactive[mode] = false
         }
-        activeModes.store(allInactive, ordering: .relaxed)
+        activeModes.store(allInactive, ordering: Synchronization.MemoryOrdering.relaxed)
     }
     
     public func isAnyModeActive() async -> Bool {
-        let modes = activeModes.load(ordering: .relaxed)
+        let modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         return modes.values.contains(true)
     }
     
     public func isModeActive(_ mode: FocusMode) async -> Bool {
-        let modes = activeModes.load(ordering: .relaxed)
+        let modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         return modes[mode] ?? false
     }
     
     // Swift 6 count(where:) method
     public func countActiveModes() async -> Int {
-        let modes = activeModes.load(ordering: .relaxed)
+        let modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         return modes.count { $0.value }
     }
     

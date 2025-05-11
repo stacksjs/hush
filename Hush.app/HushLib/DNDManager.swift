@@ -9,10 +9,9 @@ import Synchronization
 /// DNDManager handles enabling and disabling macOS's Do Not Disturb (Focus) mode
 /// Uses Swift 6 actors for thread safety and typed throws for precise error handling
 @available(macOS 14.0, *)
-@DebugDescription
-public actor DNDManager: DNDManagerProtocol {
+public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
     // Properties to track state with improved thread safety
-    private let activeModes = Atomic<[FocusMode: Bool]>([:])
+    nonisolated private let activeModes = Synchronization.Atomic<[FocusMode: Bool]>([:])
     private var activeTimers: [FocusMode: Timer] = [:]
     private var lastError: DNDError?
     private var lastSuccessTime: Date?
@@ -28,15 +27,56 @@ public actor DNDManager: DNDManagerProtocol {
         for mode in FocusMode.allCases {
             initialModes[mode] = false
         }
-        activeModes.store(initialModes, ordering: .relaxed)
+        activeModes.store(initialModes, ordering: Synchronization.MemoryOrdering.relaxed)
     }
+    
+    // MARK: - Error Handling Helpers
+    
+    // Helper method to handle enable errors
+    private func handleEnableError(_ error: Error, for options: FocusOptions) async {
+        // Update active modes to reflect the failure
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
+        modes[options.mode] = false
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
+        
+        // Convert to DNDError for consistent error handling
+        let dndError = DNDError.scriptExecutionFailed(error.localizedDescription)
+        lastError = dndError
+        
+        // Post notification about error
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: Self.focusErrorNotification, 
+                object: self,
+                userInfo: ["mode": options.mode.rawValue, "error": dndError.localizedDescription]
+            )
+        }
+    }
+    
+    // Helper method to handle disable errors
+    private func handleDisableError(_ error: Error, for mode: FocusMode) async {
+        // Convert to DNDError for consistent error handling
+        let dndError = DNDError.scriptExecutionFailed(error.localizedDescription)
+        lastError = dndError
+        
+        // Post notification about error
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: Self.focusErrorNotification, 
+                object: self,
+                userInfo: ["mode": mode.rawValue, "error": dndError.localizedDescription]
+            )
+        }
+    }
+    
+    // MARK: - Core Functionality
     
     // Enable Do Not Disturb mode with options
     public func enableDoNotDisturb(options: FocusOptions) async throws(DNDError) {
         // Update active modes atomically
-        var modes = activeModes.load(ordering: .relaxed)
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[options.mode] = true
-        activeModes.store(modes, ordering: .relaxed)
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
         
         // Post notification about starting to change mode (on main thread)
         await MainActor.run {
@@ -91,31 +131,8 @@ public actor DNDManager: DNDManagerProtocol {
                 )
             }
         } catch {
-            // Convert any error to our typed DNDError
-            let dndError: DNDError
-            if let error = error as? DNDError {
-                dndError = error
-            } else {
-                dndError = .scriptExecutionFailed(error.localizedDescription)
-            }
-            
-            lastError = dndError
-            
-            // Update active modes to reflect the failure
-            var modes = activeModes.load(ordering: .relaxed)
-            modes[options.mode] = false
-            activeModes.store(modes, ordering: .relaxed)
-            
-            // Post notification about error
-            await MainActor.run {
-                NotificationCenter.default.post(
-                    name: Self.focusErrorNotification, 
-                    object: self,
-                    userInfo: ["mode": options.mode.rawValue, "error": dndError.localizedDescription]
-                )
-            }
-            
-            throw dndError
+            await handleEnableError(error, for: options)
+            throw error
         }
     }
     
@@ -127,9 +144,9 @@ public actor DNDManager: DNDManagerProtocol {
     // Disable a specific Do Not Disturb mode
     public func disableDoNotDisturb(mode: FocusMode) async throws(DNDError) {
         // Update active modes atomically
-        var modes = activeModes.load(ordering: .relaxed)
+        var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[mode] = false
-        activeModes.store(modes, ordering: .relaxed)
+        activeModes.store(modes, ordering: Synchronization.MemoryOrdering.relaxed)
         
         // Cancel any timer for this mode
         if let timer = activeTimers[mode] {
@@ -152,33 +169,15 @@ public actor DNDManager: DNDManagerProtocol {
                 )
             }
         } catch {
-            // Convert any error to our typed DNDError
-            let dndError: DNDError
-            if let error = error as? DNDError {
-                dndError = error
-            } else {
-                dndError = .scriptExecutionFailed(error.localizedDescription)
-            }
-            
-            lastError = dndError
-            
-            // Post notification about error
-            await MainActor.run {
-                NotificationCenter.default.post(
-                    name: Self.focusErrorNotification, 
-                    object: self,
-                    userInfo: ["mode": mode.rawValue, "error": dndError.localizedDescription]
-                )
-            }
-            
-            throw dndError
+            await handleDisableError(error, for: mode)
+            throw error
         }
     }
     
     // Disable all active Focus modes
     public func disableAllModes() async {
         // Get a copy of the current modes
-        let modes = activeModes.load(ordering: .relaxed)
+        let modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         
         // Disable each active mode
         for (mode, isActive) in modes where isActive {
@@ -195,18 +194,18 @@ public actor DNDManager: DNDManagerProtocol {
         for mode in FocusMode.allCases {
             allInactive[mode] = false
         }
-        activeModes.store(allInactive, ordering: .relaxed)
+        activeModes.store(allInactive, ordering: Synchronization.MemoryOrdering.relaxed)
     }
     
     // Check if any Focus mode is active
     public func isAnyModeActive() async -> Bool {
-        let modes = activeModes.load(ordering: .relaxed)
+        let modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         return modes.values.contains(true)
     }
     
     // Check if a specific mode is active
     public func isModeActive(_ mode: FocusMode) async -> Bool {
-        let modes = activeModes.load(ordering: .relaxed)
+        let modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         return modes[mode] ?? false
     }
     
@@ -254,22 +253,23 @@ public actor DNDManager: DNDManagerProtocol {
     
     // Run AppleScript with proper error handling
     private func runAppleScriptWithErrorHandling(_ script: String) async throws(DNDError) {
-        // Create and execute the AppleScript
-        var error: NSDictionary?
+        // Create AppleScript
         let appleScript = NSAppleScript(source: script)
         
-        // Use MainActor for NSAppleScript execution which isn't Sendable
-        let appleScriptResult = await MainActor.run {
-            // Explicitly ignore the result to avoid Sendable issues
-            let _ = appleScript?.executeAndReturnError(&error)
-            return error == nil
+        // Execute the script on the MainActor since NSAppleScript isn't thread-safe
+        let (success, errorMessage, errorCode) = await MainActor.run {
+            var errorDict: NSDictionary?
+            let result = appleScript?.executeAndReturnError(&errorDict)
+            
+            // Extract relevant error info as simple types
+            let errorMsg = errorDict?["NSAppleScriptErrorMessage"] as? String ?? "Unknown error"
+            let code = errorDict?["NSAppleScriptErrorNumber"] as? Int ?? -1
+            
+            return (result != nil, errorMsg, code)
         }
         
-        // Check for errors
-        if let error = error {
-            let errorMessage = error["NSAppleScriptErrorMessage"] as? String ?? "Unknown error"
-            let errorCode = error["NSAppleScriptErrorNumber"] as? Int ?? -1
-            
+        // Handle errors with the simple types
+        if !success {
             // Map to appropriate DNDError type
             switch errorCode {
             case -1719: // Permission error
@@ -280,23 +280,19 @@ public actor DNDManager: DNDManagerProtocol {
                 throw DNDError.scriptExecutionFailed(errorMessage)
             }
         }
-        
-        // Check if the result is what we expect
-        guard appleScriptResult else {
-            throw DNDError.scriptExecutionFailed("Failed to execute AppleScript")
-        }
     }
     
     // MARK: - Debug Support
     
-    // Swift 6 compliant debug description using macro
+    // Implement debugDescription without the macro
     nonisolated public var debugDescription: String {
         "DNDManager"
     }
     
     // Helper method to get active modes description
     nonisolated private func describeActiveModes() -> String {
-        let modesSnapshot = activeModes.load(ordering: .relaxed)
+        // Now that activeModes is nonisolated, we can access it directly
+        let modesSnapshot = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         let activeModesDesc = modesSnapshot.filter { $0.value }.map { $0.key.rawValue }.joined(separator: ", ")
         return activeModesDesc.isEmpty ? "none" : activeModesDesc
     }
@@ -333,7 +329,7 @@ public actor DNDManager: DNDManagerProtocol {
     
     /// Count active modes using Swift 6's count(where:) method
     public func countActiveModes() async -> Int {
-        let modes = activeModes.load(ordering: .relaxed)
+        let modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         return modes.count { $0.value }
     }
 }

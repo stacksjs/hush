@@ -42,30 +42,40 @@ class HushLibTests: XCTestCase {
     }
     
     // Test DND manager functionality
-    func testDNDManagerBasics() throws {
+    func testDNDManagerBasics() async throws {
         // Initially all modes should be inactive
-        XCTAssertFalse(dndManager.isAnyModeActive(), "Initially no modes should be active")
+        let initiallyActive = await dndManager.isAnyModeActive()
+        XCTAssertFalse(initiallyActive, "Initially no modes should be active")
         
         for mode in FocusMode.allCases {
-            XCTAssertFalse(dndManager.isModeActive(mode), "\(mode) should initially be inactive")
+            let isModeActive = await dndManager.isModeActive(mode)
+            XCTAssertFalse(isModeActive, "\(mode) should initially be inactive")
         }
         
         // Enable a mode
         let options = FocusOptions(mode: .work)
-        dndManager.enableDoNotDisturb(options: options)
+        try await dndManager.enableDoNotDisturb(options: options)
         
         // Verify only the expected mode is active
-        XCTAssertTrue(dndManager.isAnyModeActive(), "A mode should be active")
-        XCTAssertTrue(dndManager.isModeActive(.work), "Work mode should be active")
-        XCTAssertFalse(dndManager.isModeActive(.standard), "Standard mode should be inactive")
+        let anyActive = await dndManager.isAnyModeActive()
+        XCTAssertTrue(anyActive, "A mode should be active")
+        
+        let workActive = await dndManager.isModeActive(.work)
+        XCTAssertTrue(workActive, "Work mode should be active")
+        
+        let standardActive = await dndManager.isModeActive(.standard)
+        XCTAssertFalse(standardActive, "Standard mode should be inactive")
         
         // Disable all modes
-        dndManager.disableAllModes()
+        await dndManager.disableAllModes()
         
         // Verify all modes are inactive
-        XCTAssertFalse(dndManager.isAnyModeActive(), "No modes should be active after disableAllModes")
+        let stillActive = await dndManager.isAnyModeActive()
+        XCTAssertFalse(stillActive, "No modes should be active after disableAllModes")
+        
         for mode in FocusMode.allCases {
-            XCTAssertFalse(dndManager.isModeActive(mode), "\(mode) should be inactive after disableAllModes")
+            let isModeActive = await dndManager.isModeActive(mode)
+            XCTAssertFalse(isModeActive, "\(mode) should be inactive after disableAllModes")
         }
     }
     
@@ -84,29 +94,33 @@ class HushLibTests: XCTestCase {
     }
     
     // Test the integration of screen sharing detection and DND activation
-    func testScreenSharingDNDIntegration() throws {
+    func testScreenSharingDNDIntegration() async throws {
         // Set up: initially no screen sharing and no DND
         screenShareDetector.simulateScreenSharing(false)
         XCTAssertFalse(screenShareDetector.isScreenSharing(), "Initially should not detect screen sharing")
-        XCTAssertFalse(dndManager.isAnyModeActive(), "Initially no modes should be active")
+        
+        let initiallyActive = await dndManager.isAnyModeActive()
+        XCTAssertFalse(initiallyActive, "Initially no modes should be active")
         
         // Step 1: Simulate screen sharing and enable DND
         screenShareDetector.simulateScreenSharing(true)
         if screenShareDetector.isScreenSharing() {
             let options = FocusOptions(mode: .doNotDisturb)
-            dndManager.enableDoNotDisturb(options: options)
+            try await dndManager.enableDoNotDisturb(options: options)
         }
         
         // Verify DND is active
-        XCTAssertTrue(dndManager.isModeActive(.doNotDisturb), "DND should be active during screen sharing")
+        let dndActive = await dndManager.isModeActive(.doNotDisturb)
+        XCTAssertTrue(dndActive, "DND should be active during screen sharing")
         
         // Step 2: End screen sharing and disable DND
         screenShareDetector.simulateScreenSharing(false)
         if !screenShareDetector.isScreenSharing() {
-            dndManager.disableDoNotDisturb(mode: .doNotDisturb)
+            try await dndManager.disableDoNotDisturb(mode: .doNotDisturb)
         }
         
         // Verify DND is inactive
-        XCTAssertFalse(dndManager.isModeActive(.doNotDisturb), "DND should be inactive after screen sharing ends")
+        let dndStillActive = await dndManager.isModeActive(.doNotDisturb)
+        XCTAssertFalse(dndStillActive, "DND should be inactive after screen sharing ends")
     }
 } 
