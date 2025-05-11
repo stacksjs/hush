@@ -30,36 +30,14 @@ Hush uses multiple methods to reliably detect screen sharing:
 
 ## Requirements
 
-- macOS 13.0 or later (Ventura and above)
-- Xcode 16.0 or later (for development)
+- macOS 13.0 or later _(Ventura and above)_
+- Xcode 16.0 or later _(for development)_
 - Swift 6.0
-
-## Swift 6 Compatibility
-
-Hush has been fully migrated to Swift 6, taking advantage of its new features:
-
-- **Enhanced Safety**: Full data-race safety with strict concurrency checking
-- **Performance Improvements**: Optimized memory management and execution
-- **Modern Testing**: Using Swift's new Testing framework for comprehensive test coverage
-- **Low-level Concurrency**: Leveraging the Synchronization library for thread safety
-
-For developers working with this codebase, we've prepared a detailed [Swift 6 Migration Guide](.github/SWIFT6_MIGRATION.md) to help understand the changes and patterns used.
 
 ## Building
 
 1. Open `Hush.xcodeproj` in Xcode 16 or later
 2. Build and run the project
-
-## Development
-
-For detailed development information, please see our [Development Guide](.github/DEVELOPMENT.md).
-
-## CI/CD
-
-This project uses GitHub Actions for Continuous Integration and Deployment:
-
-- **CI Workflow**: Runs tests, linting, and build validation on every pull request and push to main
-- **Release Workflow**: Builds, signs, notarizes, and releases the app when a new version tag is pushed
 
 ### Release Process
 
