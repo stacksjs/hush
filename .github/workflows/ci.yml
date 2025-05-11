@@ -14,6 +14,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Use cached node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            node-modules-
+
+      - name: Install Dependencies
+        run: bun install
+
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -28,15 +42,7 @@ jobs:
         run: swift test
 
       - name: Build app
-        run: |
-          cd Hush
-          xcodebuild build \
-            -project Hush.xcodeproj \
-            -scheme Hush \
-            -configuration Debug \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+        run: bun run build
 
   lint:
     name: Lint Swift code
@@ -105,6 +111,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Use cached node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            node-modules-
+
+      - name: Install Dependencies
+        run: bun install
+
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -113,38 +133,15 @@ jobs:
       - name: Install create-dmg
         run: brew install create-dmg
 
-      - name: Build simple app to test DMG creation
+      - name: Build minimal app
         run: |
-          cd Hush
-          mkdir -p build/test
-          # Create a minimal app bundle for testing
-          mkdir -p build/test/TestApp.app/Contents/MacOS
-          echo '#!/bin/bash' > build/test/TestApp.app/Contents/MacOS/TestApp
-          echo 'echo "Test App"' >> build/test/TestApp.app/Contents/MacOS/TestApp
-          chmod +x build/test/TestApp.app/Contents/MacOS/TestApp
+          # Build a simple app just to test DMG creation
+          bun run build
 
-          # Find an icon to use (if available)
-          ICON_PATH=$(find "Hush/Assets.xcassets/AppIcon.appiconset" -name "*.png" | sort -r | head -1 || echo "")
-
-          # Create test DMG
-          if [ -n "$ICON_PATH" ]; then
-            create-dmg \
-              --volname "TestApp" \
-              --volicon "$ICON_PATH" \
-              --window-pos 200 120 \
-              --window-size 800 450 \
-              --icon "TestApp.app" 200 165 \
-              "build/TestApp.dmg" \
-              "build/test/TestApp.app"
-          else
-            create-dmg \
-              --volname "TestApp" \
-              --window-pos 200 120 \
-              --window-size 800 450 \
-              --icon "TestApp.app" 200 165 \
-              "build/TestApp.dmg" \
-              "build/test/TestApp.app"
-          fi
+      - name: Create DMG package
+        run: |
+          # Verify we can create a DMG
+          bun run package
 
           # Verify DMG was created
-          test -f build/TestApp.dmg
+          test -f dist/Hush.dmg

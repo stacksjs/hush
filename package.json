@@ -1,0 +1,48 @@
+{
+    "name": "hush.app",
+    "private": true,
+    "type": "module",
+    "version": "0.0.0",
+    "description": "A simple app to block notifications when you're screen sharing.",
+    "author": "Chris Breuer <chris@stacksjs.org>",
+    "license": "MIT",
+    "homepage": "https://github.com/stacksjs/hush#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/stacksjs/hush.git"
+    },
+    "bugs": {
+        "url": "https://github.com/stacksjs/hush/issues"
+    },
+    "keywords": [
+        "hush",
+        "focus",
+        "dnd",
+        "notifications",
+        "zoom",
+        "macos",
+        "screen",
+        "sharing"
+    ],
+    "scripts": {
+        "build": "xcodebuild -project Hush.app/Hush.xcodeproj -scheme Hush -configuration Release CONFIGURATION_BUILD_DIR=$(pwd)/dist",
+        "package": "rm -rf ./dist/Hush.dmg && create-dmg --volname \"Hush\" --window-pos 200 120 --window-size 800 500 --background ./dmg-bg.jpg --icon-size 128 --app-drop-link 600 250 --icon \"Hush.app\" 200 250 ./dist/Hush.dmg ./dist/Hush.app",
+        "lint": "swiftlint ./Hush.app/**",
+        "lint:fix": "swiftlint ./Hush.app/** --fix ",
+        "fresh": "bunx rimraf node_modules/ bun.lock && bun i",
+        "changelog": "bunx changelogen --output CHANGELOG.md",
+        "prepublishOnly": "bun --bun run build",
+        "release": "bun run changelog && bunx bumpp package.json --all",
+        "test": "bun test",
+        "typecheck": "bun --bun tsc --noEmit"
+    },
+    "devDependencies": {
+        "@stacksjs/eslint-config": "^4.10.2-beta.3",
+        "@types/bun": "^1.2.13",
+        "bumpp": "^10.1.0",
+        "typescript": "^5.8.3"
+    },
+    "lint-staged": {
+        "*.{js,ts}": "bunx --bun eslint . --fix"
+    }
+}
