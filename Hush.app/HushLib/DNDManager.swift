@@ -73,7 +73,7 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
     
     // Enable Do Not Disturb mode with options
     #if swift(>=6.0) && swift(<6.1)
-    public func enableDoNotDisturb(options: FocusOptions) async throws -> Void {
+    public func enableDoNotDisturb(options: FocusOptions) async throws {
         // Update active modes atomically
         var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[options.mode] = true
@@ -209,7 +209,7 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
     
     // Disable a specific Do Not Disturb mode
     #if swift(>=6.0) && swift(<6.1)
-    public func disableDoNotDisturb(mode: FocusMode) async throws -> Void {
+    public func disableDoNotDisturb(mode: FocusMode) async throws {
         // Update active modes atomically
         var modes = activeModes.load(ordering: Synchronization.MemoryOrdering.relaxed)
         modes[mode] = false
@@ -353,7 +353,7 @@ public actor DNDManager: DNDManagerProtocol, CustomDebugStringConvertible {
     
     // Run AppleScript with proper error handling
     #if swift(>=6.0) && swift(<6.1)
-    private func runAppleScriptWithErrorHandling(_ script: String) async throws -> Void {
+    private func runAppleScriptWithErrorHandling(_ script: String) async throws {
         // Create AppleScript
         let appleScript = NSAppleScript(source: script)
         
