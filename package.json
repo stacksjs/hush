@@ -1,7 +1,7 @@
 {
     "name": "hushapp",
     "type": "module",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "A simple app to block notifications when you're screen sharing.",
     "author": "Chris Breuer <chris@stacksjs.org>",
     "license": "MIT",

@@ -1,4 +1,18 @@
 
+## v0.1.2...main
+
+[compare changes](https://github.com/stacksjs/hush/compare/v0.1.2...main)
+
+### 🏡 Chore
+
+- Adjust naming ([6c7b52e](https://github.com/stacksjs/hush/commit/6c7b52e))
+- Lint ([4ee3bcd](https://github.com/stacksjs/hush/commit/4ee3bcd))
+- Add bunfig ([8588634](https://github.com/stacksjs/hush/commit/8588634))
+
+### ❤️ Contributors
+
+- Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
+
 ## v0.1.1...main
 
 [compare changes](https://github.com/stacksjs/hush/compare/v0.1.1...main)
