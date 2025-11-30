@@ -35,7 +35,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Set up Swift
-        uses: swift-actions/setup-swift@v2
+        uses: swift-actions/setup-swift@v3
         with:
           swift-version: 6.1
 
