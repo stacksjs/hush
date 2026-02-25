@@ -23,6 +23,7 @@
 ## Enhanced Detection Methods
 
 Hush uses multiple methods to reliably detect screen sharing:
+
 - macOS built-in screen sharing status
 - Active application detection for common screen sharing apps (Zoom, Teams, etc.)
 - Window monitoring for screen sharing indicators

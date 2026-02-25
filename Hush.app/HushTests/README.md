@@ -20,7 +20,7 @@ We took a modular approach to testing Hush by separating the core functionality 
    - Tests for the integration between screen sharing detection and DND activation
 
 2. **Basic Functionality Tests**
-   - Simple tests verifying core Swift functionality works properly 
+   - Simple tests verifying core Swift functionality works properly
    - Serves as a sanity check for the test framework itself
 
 3. **Mock Tests**
@@ -95,7 +95,7 @@ The test suite includes:
    - `DNDManagerTests`: Tests the Do Not Disturb manager functionality
 
 2. **Integration Tests**: Test how components work together
-   - `AppDelegateTests`: Tests AppDelegate functionality with core components 
+   - `AppDelegateTests`: Tests AppDelegate functionality with core components
    - `ScreenSharingIntegrationTests`: Tests the full workflow with simulated screen sharing
 
 3. **UI Tests**: Test the user interface
@@ -133,6 +133,7 @@ The `testRealScreenSharingDetection` test in `ScreenSharingIntegrationTests` is 
 3. Manual intervention to grant permissions during the test
 
 To enable this test:
+
 1. Remove the `throw XCTSkip(...)` line at the beginning of the test method
 2. Be prepared to grant permissions when prompted
 
@@ -154,6 +155,7 @@ You can add these launch arguments to the test scheme for additional debugging:
 ## Adding New Tests
 
 When adding new tests:
+
 1. Follow the naming convention: `test[WhatIsTested]`
 2. Add necessary accessibility identifiers to UI elements
 3. Consider using the ScreenShareSimulator for tests that require screen sharing detection
@@ -163,12 +165,14 @@ When adding new tests:
 ## Test Coverage
 
 Current test coverage focuses on:
+
 1. Core functionality of detecting screen sharing
 2. Enabling/disabling Do Not Disturb
 3. UI elements and navigation
 4. Statistics tracking
 
 Areas that may need additional coverage:
+
 1. Edge cases with multiple focus modes
 2. Performance under extended use
-3. Migration of preferences from older versions 
+3. Migration of preferences from older versions

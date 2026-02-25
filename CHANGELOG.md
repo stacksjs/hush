@@ -42,7 +42,6 @@
 
 ## ...main
 
-
 ### 🏡 Chore
 
 - Initial commit ([2404239](https://github.com/stacksjs/hush/commit/2404239))
@@ -80,4 +79,3 @@
 ### ❤️ Contributors
 
 - Chris ([@chrisbbreuer](https://github.com/chrisbbreuer))
-
