@@ -13,25 +13,25 @@ We took a modular approach to testing Hush by separating the core functionality 
 ## Test Categories Implemented
 
 1. **Library Tests (HushLibTests)**
-   - Tests for `FocusMode` properties and behavior
-   - Tests for `FocusOptions` initialization and configuration
-   - Tests for `MockDNDManager` functionality
-   - Tests for `MockScreenShareDetector` functionality
-   - Tests for the integration between screen sharing detection and DND activation
+  - Tests for `FocusMode` properties and behavior
+  - Tests for `FocusOptions` initialization and configuration
+  - Tests for `MockDNDManager` functionality
+  - Tests for `MockScreenShareDetector` functionality
+  - Tests for the integration between screen sharing detection and DND activation
 
 2. **Basic Functionality Tests**
-   - Simple tests verifying core Swift functionality works properly
-   - Serves as a sanity check for the test framework itself
+  - Simple tests verifying core Swift functionality works properly
+  - Serves as a sanity check for the test framework itself
 
 3. **Mock Tests**
-   - Tests using mock implementations of core components
-   - Allows testing of components without external dependencies
+  - Tests using mock implementations of core components
+  - Allows testing of components without external dependencies
 
 ## Running Tests
 
 Successfully ran the test suite using Swift Package Manager:
 
-```
+```text
 $ swift test
 [1/1] Planning build
 Building for debugging...
@@ -59,49 +59,49 @@ Test Suite 'HushLibTests' passed at 2025-05-07 20:36:29.525.
 To fully test the Hush app, these additional tests should be implemented:
 
 1. **UI Tests**
-   - Tests for the welcome screen, preferences, and about screens
-   - Tests for menu bar operations and toggles
-   - Would require proper test target configuration in Xcode
+  - Tests for the welcome screen, preferences, and about screens
+  - Tests for menu bar operations and toggles
+  - Would require proper test target configuration in Xcode
 
 2. **Integration Tests with Real Components**
-   - Tests that use actual screen sharing detection
-   - Tests that interact with the real Do Not Disturb API
-   - Would require proper permissions and system access
+  - Tests that use actual screen sharing detection
+  - Tests that interact with the real Do Not Disturb API
+  - Would require proper permissions and system access
 
 3. **Automated End-to-End Testing**
-   - Tests that simulate full app usage scenarios
-   - Would require additional setup to interact with macOS UI elements
+  - Tests that simulate full app usage scenarios
+  - Would require additional setup to interact with macOS UI elements
 
 ## Challenges and Solutions
 
 1. **Module Import Issues**
-   - **Challenge**: The test files were unable to import XCTest and the Hush module
-   - **Solution**: Created a Swift Package with a separate HushLib target and configured tests to use that
+  - **Challenge**: The test files were unable to import XCTest and the Hush module
+  - **Solution**: Created a Swift Package with a separate HushLib target and configured tests to use that
 
 2. **Test Target Configuration**
-   - **Challenge**: Xcode test target wasn't properly configured
-   - **Solution**: Created a test plan file and used Swift Package Manager for testing
+  - **Challenge**: Xcode test target wasn't properly configured
+  - **Solution**: Created a test plan file and used Swift Package Manager for testing
 
 3. **Existing Tests Compatibility**
-   - **Challenge**: Existing test files had dependencies on the full app structure
-   - **Solution**: Excluded them from the test target and focused on HushLib tests
+  - **Challenge**: Existing test files had dependencies on the full app structure
+  - **Solution**: Excluded them from the test target and focused on HushLib tests
 
 ## Test Categories
 
 The test suite includes:
 
 1. **Unit Tests**: Test individual components in isolation
-   - `ScreenShareDetectorTests`: Tests the core screen sharing detection logic
-   - `DNDManagerTests`: Tests the Do Not Disturb manager functionality
+  - `ScreenShareDetectorTests`: Tests the core screen sharing detection logic
+  - `DNDManagerTests`: Tests the Do Not Disturb manager functionality
 
 2. **Integration Tests**: Test how components work together
-   - `AppDelegateTests`: Tests AppDelegate functionality with core components
-   - `ScreenSharingIntegrationTests`: Tests the full workflow with simulated screen sharing
+  - `AppDelegateTests`: Tests AppDelegate functionality with core components
+  - `ScreenSharingIntegrationTests`: Tests the full workflow with simulated screen sharing
 
 3. **UI Tests**: Test the user interface
-   - `HushUITests`: Tests the app's UI components and interactions
+  - `HushUITests`: Tests the app's UI components and interactions
 
-## Running Tests
+## Running Tests (Detailed)
 
 ### Prerequisites
 
