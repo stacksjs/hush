@@ -2,7 +2,7 @@
 
 ## About
 
-A simple app to block notifications when you're screen sharing.
+Hush is a macOS menu bar app (Swift 6, macOS 14+) that automatically detects screen sharing and enables Do Not Disturb mode to protect your privacy. It uses multiple detection methods including macOS built-in screen sharing status, active application monitoring for apps like Zoom and Teams, window indicator tracking, and screen capture state detection. The app provides customizable Focus mode settings, usage statistics, and optional auto-launch at login, all running locally with no data collection.
 
 ## Linting
 
