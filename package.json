@@ -43,7 +43,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.2.13",
-    "bumpp": "^10.1.0",
+    "bumpp": "^11.0.1",
     "js-yaml": "^4.1.0",
     "pickier": "^0.1.20",
     "typescript": "^5.8.3"
