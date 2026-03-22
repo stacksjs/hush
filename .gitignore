@@ -53,3 +53,5 @@ DerivedData/
 !default.perspectivev3 
 /dist
 /node_modules
+.zed
+.cursor
