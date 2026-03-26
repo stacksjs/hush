@@ -46,7 +46,7 @@
     "bumpp": "^10.1.0",
     "js-yaml": "^4.1.0",
     "pickier": "^0.1.20",
-    "typescript": "^5.8.3",
+    "typescript": "^6.0.2",
     "bun-git-hooks": "^0.3.1"
   },
   "git-hooks": {
