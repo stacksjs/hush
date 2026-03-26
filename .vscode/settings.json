@@ -9,6 +9,29 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "never"
   },
+
+  "[stx]": {
+    "editor.defaultFormatter": "pickier.pickier-vscode"
+  },
+  // Markdown
+  "[markdown]": {
+    "editor.defaultFormatter": "DavidAnson.vscode-markdownlint",
+    "editor.formatOnSave": true
+  },
+  "markdownlint.config": {
+    "default": true,
+    "MD033": {
+      "allowed_elements": [
+        "details",
+        "summary",
+        "VPTeamPage",
+        "VPTeamPageTitle",
+        "VPTeamMembers",
+        "script"
+      ]
+    },
+    "MD041": false
+  },
     "files.exclude": {
         "**/.git": true,
         "**/.DS_Store": true,
