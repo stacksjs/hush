@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Hush is signed with the hardened runtime, which is required for
+      notarization. Each entitlement below is present because a specific
+      capability stops working without it.
+    -->
+
+    <!--
+      The Craft runtime evaluates JavaScript in a WKWebView. The hardened
+      runtime blocks JIT-compiled code by default, and without this the
+      webview falls back to a interpreter-only mode or fails to load.
+    -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!--
+      Focus is changed by running a user-created Shortcut through
+      /usr/bin/shortcuts. Spawning a signed system binary from a hardened
+      process needs this; there is no alternative, because macOS does not let
+      a third-party app set Focus directly.
+    -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+
+    <!--
+      Reading and writing preferences.json and statistics.json under
+      ~/Library/Application Support/Hush.
+    -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+</dict>
+</plist>

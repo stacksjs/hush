@@ -6,9 +6,9 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "target": "ESNext",
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun"]
   },
-  "include": ["."],
-  "exclude": ["node_modules", "dist", "Hush.app"]
+  "include": ["src", "test", "scripts", "craft.config.ts", "env.d.ts"],
+  "exclude": ["node_modules", "dist"]
 }

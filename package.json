@@ -21,38 +21,48 @@
     "do",
     "not",
     "disturb",
-    "muzzle"
+    "focus",
+    "stacks",
+    "stx",
+    "craft"
   ],
   "files": [
     "README.md",
     "dist/Hush.dmg"
   ],
   "scripts": {
-    "build": "xcodebuild -project Hush.app/Hush.xcodeproj -scheme Hush -configuration Release CONFIGURATION_BUILD_DIR=$(pwd)/dist",
-    "package": "rm -rf ./dist/Hush.dmg && create-dmg --volname \"Hush\" --window-pos 200 120 --window-size 800 500 --background ./dmg-bg.jpg --icon-size 128 --app-drop-link 600 250 --icon \"Hush.app\" 200 250 ./dist/Hush.dmg ./dist/Hush.app",
+    "dev": "bun scripts/dev.ts",
+    "build": "bun scripts/build.ts",
+    "package": "bun scripts/build.ts --dmg",
     "lint": "bunx --bun pickier .",
     "lint:fix": "bunx --bun pickier . --fix",
     "format": "bunx --bun pickier . --format",
     "format:fix": "bunx --bun pickier . --format --write",
     "fresh": "bunx rimraf node_modules/ bun.lock && bun i",
-    "changelog": "bunx changelogen --output CHANGELOG.md",
-    "prepublishOnly": "bun --bun run build",
-    "release": "bun run changelog && bunx bumpp package.json --all",
-    "test": "bun test",
+    "changelog": "bunx --bun logsmith --verbose",
+    "changelog:generate": "bunx --bun logsmith --output CHANGELOG.md",
+    "release": "bunx --bun bumpx prompt --recursive --commit --tag --push --yes",
+    "release:patch": "bunx --bun bumpx patch --recursive --commit --tag --push --yes",
+    "release:minor": "bunx --bun bumpx minor --recursive --commit --tag --push --yes",
+    "release:major": "bunx --bun bumpx major --recursive --commit --tag --push --yes",
+    "test": "bun test --preload ./test-utils/dom.ts",
     "typecheck": "bun --bun tsc --noEmit"
   },
+  "dependencies": {
+    "@stacksjs/desktop": "^0.2.120",
+    "@stacksjs/stx": "^0.2.120"
+  },
   "devDependencies": {
+    "@stacksjs/bumpx": "^0.2.10",
     "@types/bun": "^1.2.13",
-    "bumpp": "^10.1.0",
-    "js-yaml": "^4.1.0",
+    "bun-git-hooks": "^0.3.1",
     "pickier": "^0.1.20",
-    "typescript": "^5.8.3",
-    "bun-git-hooks": "^0.3.1"
+    "typescript": "^5.8.3"
   },
   "git-hooks": {
     "pre-commit": {
       "staged-lint": {
-        "*.{js,ts,json,yaml,yml,md}": "bunx --bun pickier lint --fix"
+        "*.{js,ts,json,yaml,yml,md,stx}": "bunx --bun pickier lint --fix"
       }
     },
     "commit-msg": "bunx gitlint --edit .git/COMMIT_EDITMSG"
