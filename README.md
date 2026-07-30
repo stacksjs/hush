@@ -7,62 +7,98 @@
 
 # Hush
 
-> A modern macOS app that automatically detects when you're screen sharing and enables Do Not Disturb mode to protect your privacy.
+> Silences your Mac while you share your screen. A menubar app built on Stacks — stx for the UI, Craft for the native runtime.
 
 ## Features
 
-- 🎯 **Advanced Screen Sharing Detection** - Multiple detection methods for reliable operation
-- 🔕 **Automatic Do Not Disturb** - Toggles Focus modes automatically when screen sharing starts/stops
-- 🔄 **Background Operation** - Runs quietly in your menu bar
-- 🔔 **Smart Notifications** - Notifies you when protection is enabled/disabled
-- ⚙️ **Customizable Settings** - Configure Focus modes, detection intervals, and more
-- 📊 **Usage Statistics** - Track how often you share your screen and for how long
-- 🚀 **Auto Launch** - Optional startup at login
-- 🔒 **Privacy Focused** - Works locally on your Mac with no data collection
+- 🎯 **Detection that means something** — matches the sharing *indicator* a conferencing app shows while a share is live, not the mere presence of the app
+- 🔕 **Automatic Focus** — turns Do Not Disturb on when you start presenting, off when you stop
+- 🌊 **No flapping** — transitions are debounced in both directions, so a sharing toolbar that rebuilds mid-meeting doesn't unsilence your Mac
+- 🤝 **Leaves your Focus alone** — never turns off a Focus it didn't turn on
+- 📊 **Usage statistics** — sessions, total quiet time, average session length
+- 🚀 **Launch at login** — optional, and reconciled with what you set in System Settings
+- 🔒 **Local only** — nothing leaves your Mac
 
-## Enhanced Detection Methods
+## How detection works
 
-Hush uses multiple methods to reliably detect screen sharing:
+macOS offers no "is my screen being captured?" API, so Hush combines four
+independent signals through Craft:
 
-- macOS built-in screen sharing status
-- Active application detection for common screen sharing apps (Zoom, Teams, etc.)
-- Window monitoring for screen sharing indicators
-- Screen capture state detection
+| Signal | Fires when |
+| --- | --- |
+| System screen sharing | macOS Screen Sharing / Apple Remote Desktop has the session |
+| Remote session | the session is driven from somewhere other than this console |
+| Conference sharing | a conferencing app is showing its live sharing control |
+| Screen recording | a recorder is capturing the screen |
+
+The two window-level signals match the floating control an app shows *only
+while sharing*. "Zoom is running" describes most of a working day, and acting
+on it would silence notifications permanently.
+
+## Setup
+
+macOS reserves direct Focus control for Apple-entitled clients — Control
+Center and Shortcuts hold the entitlement; third-party apps cannot. The one
+sanctioned path is to let Shortcuts perform the change, so Hush needs two
+shortcuts, created once:
+
+1. Open **Shortcuts** and create a shortcut named **Hush Focus On**
+2. Add the **Set Focus** action, set to turn Do Not Disturb **on**
+3. Create a second shortcut named **Hush Focus Off** that turns it **off**
+
+Hush checks for both at launch and tells you if either is missing, rather than
+failing at the moment a meeting starts. You can point it at different names in
+`~/Library/Application Support/Hush/preferences.json`.
 
 ## Requirements
 
-- macOS 14.0 or later _(Sonoma and above)_
-- Xcode 16.0 or later _(for development)_
-- Swift 6.0
+- macOS 13.0 or later
+- Bun 1.2 or later *(for development)*
 
-## Building
+## Development
 
-1. Open `Hush.xcodeproj` in Xcode 16 or later
-2. Build and run the project
+```bash
+bun install
+bun run dev        # build and launch, with Craft's output in your terminal
+bun run test
+bun run build      # dist/Hush.app
+bun run package    # dist/Hush.app + dist/Hush-<version>.dmg
+```
 
-## Usage
+The build resolves the Craft runtime from pantry, or from `CRAFT_BIN` when you
+are working against a local Craft build:
 
-1. Hush runs in your menu bar
-2. When screen sharing is detected, Do Not Disturb mode is automatically enabled
-3. When screen sharing ends, Do Not Disturb mode is automatically disabled
-4. Click the menu bar icon to access settings, statistics, and more
+```bash
+CRAFT_BIN=~/Code/Tools/craft/packages/zig/zig-out/bin/craft bun run package
+```
+
+## Architecture
+
+```
+src/core/       platform-free: the decision engine, preferences, statistics
+src/runtime/    the controller wiring detection → policy → Focus, and storage
+src/client/     binds the controller to the popover
+src/app.stx     the UI
+scripts/        build and dev drivers
+```
+
+`src/core` has no imports outside itself, which is why the policy is covered
+by tests that need neither a window nor a Mac.
+
+## Releasing
+
+```bash
+bun run release:patch   # or release:minor / release:major
+```
+
+bumpx bumps the version, commits, tags and pushes. The tag triggers the
+release workflow, which builds the app, signs and notarizes it when the Apple
+secrets are configured, and publishes a GitHub release through the pantry
+action with generated notes, a checksums manifest and the DMG attached.
 
 ## Privacy
 
 Hush only detects screen sharing state locally on your Mac and doesn't collect or transmit any data.
-
-## Testing
-
-```bash
-swift test
-```
-
-You can also run the Xcode tests using:
-
-```bash
-cd Hush
-xcodebuild test -project Hush.xcodeproj -scheme Hush
-```
 
 ## Changelog
 

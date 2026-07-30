@@ -56,7 +56,7 @@
     "@stacksjs/bumpx": "^0.2.10",
     "@types/bun": "^1.2.13",
     "bun-git-hooks": "^0.3.1",
-    "pickier": "^0.1.20",
+    "pickier": "^0.1.44",
     "typescript": "^5.8.3"
   },
   "git-hooks": {
