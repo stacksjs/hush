@@ -3,101 +3,138 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
-  build:
-    name: Build and Release
-    runs-on: macos-latest
+  release:
+    name: Build and release
+    # Hush is a macOS app and the build assembles a .app bundle, so this has to
+    # run on macOS regardless of how much cheaper a Linux runner would be.
+    runs-on: macos-15
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Use cached node_modules
-        uses: actions/cache@v5
+      # Brings its own Bun, and installs Craft — the native runtime copied into
+      # the app bundle — from the pantry registry.
+      - name: Set up pantry
+        uses: home-lang/pantry/packages/action@main
         with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            node-modules-
-
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
-      - name: Set up Swift
-        uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: 6.1
+          packages: craft
 
       - name: Install dependencies
-        run: brew install create-dmg
+        run: bun install --frozen-lockfile
 
-      # - name: Set up keychain for code signing
-      #   uses: mskelton/macos-certs@v1
-      #   if: startsWith(github.ref, 'refs/tags/')
-      #   env:
-      #     CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
-      #     CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      - name: Lint
+        run: bun run lint
 
-      - name: Run tests
-        run: swift test
+      - name: Typecheck
+        run: bun run typecheck
 
-      - name: Install SwiftLint
-        run: brew install swiftlint
+      - name: Test
+        run: bun run test
 
-      - name: Run SwiftLint
-        run: swiftlint lint --reporter github-actions-logging Hush.app
+      - name: Read version
+        id: version
+        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Build app
-        run: bun run build
-
-      - name: Package DMG
-        id: create_dmg
+      - name: Build app and DMG
         run: bun run package
 
-      # - name: Notarize DMG
-      #   if: startsWith(github.ref, 'refs/tags/')
-      #   env:
-      #     APPLE_ID: ${{ secrets.APPLE_ID }}
-      #     APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-      #     TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      #   run: |
-      #     echo "Submitting app for notarization"
-      #     xcrun notarytool submit \
-      #       ${{ steps.create_dmg.outputs.dmg_path }} \
-      #       --apple-id "$APPLE_ID" \
-      #       --password "$APPLE_ID_PASSWORD" \
-      #       --team-id "$TEAM_ID" \
-      #       --wait
-
-      #     echo "Stapling notarization ticket to DMG"
-      #     xcrun stapler staple ${{ steps.create_dmg.outputs.dmg_path }}
-
-      - name: Publish to npm
-        run: bun publish --access public
+      # Signing stays optional so a release still completes before the
+      # certificates are in place — but an unsigned build is announced loudly
+      # rather than shipped quietly, because Gatekeeper will quarantine it.
+      - name: Check for signing credentials
+        id: signing
         env:
-          BUN_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+          APPLE_APPLICATION_CERTIFICATE: ${{ secrets.APPLE_APPLICATION_CERTIFICATE }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [ -n "${APPLE_APPLICATION_CERTIFICATE:-}" ]; then
+            echo "sign=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No Apple signing certificate configured — publishing an unsigned build that Gatekeeper will quarantine."
+          fi
+          if [ -n "${APPLE_ID:-}" ]; then
+            echo "notarize=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "notarize=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Create GitHub Release
-        run: bunx changelogithub
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-
-      - name: Attach DMG to Release
-        uses: stacksjs/action-releaser@v1.1.0
+      - name: Import Apple signing certificates
+        if: steps.signing.outputs.sign == 'true'
+        id: apple
+        uses: home-lang/pantry/packages/action@main
         with:
-          files: |
-            dist/Hush.dmg
-          # homebrewFormula: "homebrew-formula.rb.template"
-          # homebrewRepo: "stacksjs/homebrew-tap"
-          # homebrewPath: "Formula"
+          install: 'false'
+          apple-signing: 'true'
+          apple-signing-application-certificate: ${{ secrets.APPLE_APPLICATION_CERTIFICATE }}
+          apple-signing-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Sign the app bundle
+        if: steps.signing.outputs.sign == 'true'
+        env:
+          IDENTITY: ${{ steps.apple.outputs.apple-signing-identity }}
+        run: |
+          set -euo pipefail
+          # The Craft runtime inside the bundle is a separate Mach-O and has to
+          # be signed first, or the outer signature seals an unsigned
+          # executable and verification fails.
+          codesign --force --options runtime --timestamp \
+            --sign "$IDENTITY" dist/Hush.app/Contents/MacOS/craft
+          codesign --force --options runtime --timestamp \
+            --entitlements build/entitlements.plist \
+            --sign "$IDENTITY" dist/Hush.app
+          codesign --verify --deep --strict --verbose=2 dist/Hush.app
+
+      - name: Rebuild the DMG around the signed app
+        if: steps.signing.outputs.sign == 'true'
+        run: |
+          set -euo pipefail
+          rm -f dist/*.dmg
+          hdiutil create -volname Hush -srcfolder dist/Hush.app -ov -format UDZO \
+            "dist/Hush-${{ steps.version.outputs.version }}.dmg"
+
+      - name: Notarize
+        if: steps.signing.outputs.sign == 'true' && steps.signing.outputs.notarize == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          DMG="dist/Hush-${{ steps.version.outputs.version }}.dmg"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 30m
+          # A DMG supports stapling, so the ticket travels with the download and
+          # Gatekeeper does not have to be online to verify it.
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+
+      - name: Publish the GitHub release
+        uses: home-lang/pantry/packages/action@main
+        with:
+          install: 'false'
+          release: 'true'
+          release-files: dist/*.dmg
+          # Notes come from the commits between the previous tag and this one,
+          # so the release reads correctly without CHANGELOG.md having to be
+          # regenerated and committed first.
+          release-changelog: auto
+          release-checksums: 'true'
+          release-token: ${{ secrets.GITHUB_TOKEN }}

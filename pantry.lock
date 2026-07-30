@@ -1,0 +1,610 @@
+{
+  "version": "1.0",
+  "packages": {
+    "execa@0.6.3": {
+      "name": "execa",
+      "version": "0.6.3",
+      "resolved": "registry:execa@0.6.3"
+    },
+    "camelcase@2.1.1": {
+      "name": "camelcase",
+      "version": "2.1.1",
+      "resolved": "registry:camelcase@2.1.1"
+    },
+    "redent@1.0.0": {
+      "name": "redent",
+      "version": "1.0.0",
+      "resolved": "registry:redent@1.0.0"
+    },
+    "trim-newlines@1.0.0": {
+      "name": "trim-newlines",
+      "version": "1.0.0",
+      "resolved": "registry:trim-newlines@1.0.0"
+    },
+    "load-json-file@1.1.0": {
+      "name": "load-json-file",
+      "version": "1.1.0",
+      "resolved": "registry:load-json-file@1.1.0"
+    },
+    "isarray@1.0.0": {
+      "name": "isarray",
+      "version": "1.0.0",
+      "resolved": "registry:isarray@1.0.0"
+    },
+    "graceful-fs@4.2.11": {
+      "name": "graceful-fs",
+      "version": "4.2.11",
+      "resolved": "registry:graceful-fs@4.2.11"
+    },
+    "is-stream@1.1.0": {
+      "name": "is-stream",
+      "version": "1.1.0",
+      "resolved": "registry:is-stream@1.1.0"
+    },
+    "cp-file@3.2.0": {
+      "name": "cp-file",
+      "version": "3.2.0",
+      "resolved": "registry:cp-file@3.2.0"
+    },
+    "xmldom@0.1.0": {
+      "name": "xmldom",
+      "version": "0.1.0",
+      "resolved": "registry:xmldom@0.1.0"
+    },
+    "tn1150@0.1.0": {
+      "name": "tn1150",
+      "version": "0.1.0",
+      "resolved": "registry:tn1150@0.1.0"
+    },
+    "signal-exit@3.0.7": {
+      "name": "signal-exit",
+      "version": "3.0.7",
+      "resolved": "registry:signal-exit@3.0.7"
+    },
+    "hosted-git-info@2.8.9": {
+      "name": "hosted-git-info",
+      "version": "2.8.9",
+      "resolved": "registry:hosted-git-info@2.8.9"
+    },
+    "minimist@1.2.8": {
+      "name": "minimist",
+      "version": "1.2.8",
+      "resolved": "registry:minimist@1.2.8"
+    },
+    "strip-eof@1.0.0": {
+      "name": "strip-eof",
+      "version": "1.0.0",
+      "resolved": "registry:strip-eof@1.0.0"
+    },
+    "object-assign@4.1.1": {
+      "name": "object-assign",
+      "version": "4.1.1",
+      "resolved": "registry:object-assign@4.1.1"
+    },
+    "color-convert@0.5.3": {
+      "name": "color-convert",
+      "version": "0.5.3",
+      "resolved": "registry:color-convert@0.5.3"
+    },
+    "find-up@1.1.2": {
+      "name": "find-up",
+      "version": "1.1.2",
+      "resolved": "registry:find-up@1.1.2"
+    },
+    "is-my-ip-valid@1.0.1": {
+      "name": "is-my-ip-valid",
+      "version": "1.0.1",
+      "resolved": "registry:is-my-ip-valid@1.0.1"
+    },
+    "meow@3.7.0": {
+      "name": "meow",
+      "version": "3.7.0",
+      "resolved": "registry:meow@3.7.0"
+    },
+    "es-errors@1.3.0": {
+      "name": "es-errors",
+      "version": "1.3.0",
+      "resolved": "registry:es-errors@1.3.0"
+    },
+    "appdmg@0.4.5": {
+      "name": "appdmg",
+      "version": "0.4.5",
+      "resolved": "registry:appdmg@0.4.5"
+    },
+    "error-ex@1.3.4": {
+      "name": "error-ex",
+      "version": "1.3.4",
+      "resolved": "registry:error-ex@1.3.4"
+    },
+    "is-arrayish@0.2.1": {
+      "name": "is-arrayish",
+      "version": "0.2.1",
+      "resolved": "registry:is-arrayish@0.2.1"
+    },
+    "readable-stream@2.3.8": {
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "resolved": "registry:readable-stream@2.3.8"
+    },
+    "spdx-expression-parse@3.0.1": {
+      "name": "spdx-expression-parse",
+      "version": "3.0.1",
+      "resolved": "registry:spdx-expression-parse@3.0.1"
+    },
+    "async@1.5.2": {
+      "name": "async",
+      "version": "1.5.2",
+      "resolved": "registry:async@1.5.2"
+    },
+    "plist@2.1.0": {
+      "name": "plist",
+      "version": "2.1.0",
+      "resolved": "registry:plist@2.1.0"
+    },
+    "normalize-package-data@2.5.0": {
+      "name": "normalize-package-data",
+      "version": "2.5.0",
+      "resolved": "registry:normalize-package-data@2.5.0"
+    },
+    "isexe@2.0.0": {
+      "name": "isexe",
+      "version": "2.0.0",
+      "resolved": "registry:isexe@2.0.0"
+    },
+    "ds-store@0.1.6": {
+      "name": "ds-store",
+      "version": "0.1.6",
+      "resolved": "registry:ds-store@0.1.6"
+    },
+    "read-pkg@1.1.0": {
+      "name": "read-pkg",
+      "version": "1.1.0",
+      "resolved": "registry:read-pkg@1.1.0"
+    },
+    "lru-cache@4.1.5": {
+      "name": "lru-cache",
+      "version": "4.1.5",
+      "resolved": "registry:lru-cache@4.1.5"
+    },
+    "cli-cursor@2.1.0": {
+      "name": "cli-cursor",
+      "version": "2.1.0",
+      "resolved": "registry:cli-cursor@2.1.0"
+    },
+    "bplist-creator@0.0.8": {
+      "name": "bplist-creator",
+      "version": "0.0.8",
+      "resolved": "registry:bplist-creator@0.0.8"
+    },
+    "spdx-exceptions@2.5.0": {
+      "name": "spdx-exceptions",
+      "version": "2.5.0",
+      "resolved": "registry:spdx-exceptions@2.5.0"
+    },
+    "validate-npm-package-license@3.0.4": {
+      "name": "validate-npm-package-license",
+      "version": "3.0.4",
+      "resolved": "registry:validate-npm-package-license@3.0.4"
+    },
+    "is-core-module@2.16.2": {
+      "name": "is-core-module",
+      "version": "2.16.2",
+      "resolved": "registry:is-core-module@2.16.2"
+    },
+    "repeat-string@1.6.1": {
+      "name": "repeat-string",
+      "version": "1.6.1",
+      "resolved": "registry:repeat-string@1.6.1"
+    },
+    "resolve@1.22.12": {
+      "name": "resolve",
+      "version": "1.22.12",
+      "resolved": "registry:resolve@1.22.12"
+    },
+    "spdx-correct@3.2.0": {
+      "name": "spdx-correct",
+      "version": "3.2.0",
+      "resolved": "registry:spdx-correct@3.2.0"
+    },
+    "restore-cursor@2.0.0": {
+      "name": "restore-cursor",
+      "version": "2.0.0",
+      "resolved": "registry:restore-cursor@2.0.0"
+    },
+    "is-utf8@0.2.1": {
+      "name": "is-utf8",
+      "version": "0.2.1",
+      "resolved": "registry:is-utf8@0.2.1"
+    },
+    "pseudomap@1.0.2": {
+      "name": "pseudomap",
+      "version": "1.0.2",
+      "resolved": "registry:pseudomap@1.0.2"
+    },
+    "parse-json@2.2.0": {
+      "name": "parse-json",
+      "version": "2.2.0",
+      "resolved": "registry:parse-json@2.2.0"
+    },
+    "generate-function@2.3.1": {
+      "name": "generate-function",
+      "version": "2.3.1",
+      "resolved": "registry:generate-function@2.3.1"
+    },
+    "create-dmg@1.3.0": {
+      "name": "create-dmg",
+      "version": "1.3.0",
+      "resolved": "registry:create-dmg@1.3.0"
+    },
+    "path-parse@1.0.7": {
+      "name": "path-parse",
+      "version": "1.0.7",
+      "resolved": "registry:path-parse@1.0.7"
+    },
+    "parse-color@1.0.0": {
+      "name": "parse-color",
+      "version": "1.0.0",
+      "resolved": "registry:parse-color@1.0.0"
+    },
+    "camelcase-keys@2.1.0": {
+      "name": "camelcase-keys",
+      "version": "2.1.0",
+      "resolved": "registry:camelcase-keys@2.1.0"
+    },
+    "murmur-32@0.1.0": {
+      "name": "murmur-32",
+      "version": "0.1.0",
+      "resolved": "registry:murmur-32@0.1.0"
+    },
+    "fs-xattr@0.1.17": {
+      "name": "fs-xattr",
+      "version": "0.1.17",
+      "resolved": "registry:fs-xattr@0.1.17"
+    },
+    "chalk@2.4.2": {
+      "name": "chalk",
+      "version": "2.4.2",
+      "resolved": "registry:chalk@2.4.2"
+    },
+    "fs-temp@1.2.1": {
+      "name": "fs-temp",
+      "version": "1.2.1",
+      "resolved": "registry:fs-temp@1.2.1"
+    },
+    "get-stream@3.0.0": {
+      "name": "get-stream",
+      "version": "3.0.0",
+      "resolved": "registry:get-stream@3.0.0"
+    },
+    "ansi-styles@3.2.1": {
+      "name": "ansi-styles",
+      "version": "3.2.1",
+      "resolved": "registry:ansi-styles@3.2.1"
+    },
+    "nan@2.28.0": {
+      "name": "nan",
+      "version": "2.28.0",
+      "resolved": "registry:nan@2.28.0"
+    },
+    "buffer-from@0.1.2": {
+      "name": "buffer-from",
+      "version": "0.1.2",
+      "resolved": "registry:buffer-from@0.1.2"
+    },
+    "array-buffer-from-string@0.1.0": {
+      "name": "array-buffer-from-string",
+      "version": "0.1.0",
+      "resolved": "registry:array-buffer-from-string@0.1.0"
+    },
+    "inherits@2.0.4": {
+      "name": "inherits",
+      "version": "2.0.4",
+      "resolved": "registry:inherits@2.0.4"
+    },
+    "path-type@1.1.0": {
+      "name": "path-type",
+      "version": "1.1.0",
+      "resolved": "registry:path-type@1.1.0"
+    },
+    "util-deprecate@1.0.2": {
+      "name": "util-deprecate",
+      "version": "1.0.2",
+      "resolved": "registry:util-deprecate@1.0.2"
+    },
+    "currently-unhandled@0.4.1": {
+      "name": "currently-unhandled",
+      "version": "0.4.1",
+      "resolved": "registry:currently-unhandled@0.4.1"
+    },
+    "path-key@2.0.1": {
+      "name": "path-key",
+      "version": "2.0.1",
+      "resolved": "registry:path-key@2.0.1"
+    },
+    "decamelize@1.2.0": {
+      "name": "decamelize",
+      "version": "1.2.0",
+      "resolved": "registry:decamelize@1.2.0"
+    },
+    "ora@1.4.0": {
+      "name": "ora",
+      "version": "1.4.0",
+      "resolved": "registry:ora@1.4.0"
+    },
+    "npm-run-path@2.0.2": {
+      "name": "npm-run-path",
+      "version": "2.0.2",
+      "resolved": "registry:npm-run-path@2.0.2"
+    },
+    "get-stdin@4.0.1": {
+      "name": "get-stdin",
+      "version": "4.0.1",
+      "resolved": "registry:get-stdin@4.0.1"
+    },
+    "imul@1.0.1": {
+      "name": "imul",
+      "version": "1.0.1",
+      "resolved": "registry:imul@1.0.1"
+    },
+    "which@1.3.1": {
+      "name": "which",
+      "version": "1.3.1",
+      "resolved": "registry:which@1.3.1"
+    },
+    "map-obj@1.0.1": {
+      "name": "map-obj",
+      "version": "1.0.1",
+      "resolved": "registry:map-obj@1.0.1"
+    },
+    "is-my-json-valid@2.20.6": {
+      "name": "is-my-json-valid",
+      "version": "2.20.6",
+      "resolved": "registry:is-my-json-valid@2.20.6"
+    },
+    "supports-color@5.5.0": {
+      "name": "supports-color",
+      "version": "5.5.0",
+      "resolved": "registry:supports-color@5.5.0"
+    },
+    "string_decoder@1.1.1": {
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "resolved": "registry:string_decoder@1.1.1"
+    },
+    "has-flag@3.0.0": {
+      "name": "has-flag",
+      "version": "3.0.0",
+      "resolved": "registry:has-flag@3.0.0"
+    },
+    "cross-spawn@5.1.0": {
+      "name": "cross-spawn",
+      "version": "5.1.0",
+      "resolved": "registry:cross-spawn@5.1.0"
+    },
+    "core-util-is@1.0.3": {
+      "name": "core-util-is",
+      "version": "1.0.3",
+      "resolved": "registry:core-util-is@1.0.3"
+    },
+    "pify@2.3.0": {
+      "name": "pify",
+      "version": "2.3.0",
+      "resolved": "registry:pify@2.3.0"
+    },
+    "function-bind@1.1.2": {
+      "name": "function-bind",
+      "version": "1.1.2",
+      "resolved": "registry:function-bind@1.1.2"
+    },
+    "yallist@2.1.2": {
+      "name": "yallist",
+      "version": "2.1.2",
+      "resolved": "registry:yallist@2.1.2"
+    },
+    "log-symbols@2.2.0": {
+      "name": "log-symbols",
+      "version": "2.2.0",
+      "resolved": "registry:log-symbols@2.2.0"
+    },
+    "base64-js@1.2.0": {
+      "name": "base64-js",
+      "version": "1.2.0",
+      "resolved": "registry:base64-js@1.2.0"
+    },
+    "loud-rejection@1.6.0": {
+      "name": "loud-rejection",
+      "version": "1.6.0",
+      "resolved": "registry:loud-rejection@1.6.0"
+    },
+    "fmix@0.1.0": {
+      "name": "fmix",
+      "version": "0.1.0",
+      "resolved": "registry:fmix@0.1.0"
+    },
+    "escape-string-regexp@1.0.5": {
+      "name": "escape-string-regexp",
+      "version": "1.0.5",
+      "resolved": "registry:escape-string-regexp@1.0.5"
+    },
+    "mimic-fn@1.2.0": {
+      "name": "mimic-fn",
+      "version": "1.2.0",
+      "resolved": "registry:mimic-fn@1.2.0"
+    },
+    "nested-error-stacks@1.0.2": {
+      "name": "nested-error-stacks",
+      "version": "1.0.2",
+      "resolved": "registry:nested-error-stacks@1.0.2"
+    },
+    "p-finally@1.0.0": {
+      "name": "p-finally",
+      "version": "1.0.0",
+      "resolved": "registry:p-finally@1.0.0"
+    },
+    "is-property@1.0.2": {
+      "name": "is-property",
+      "version": "1.0.2",
+      "resolved": "registry:is-property@1.0.2"
+    },
+    "cli-spinners@1.3.1": {
+      "name": "cli-spinners",
+      "version": "1.3.1",
+      "resolved": "registry:cli-spinners@1.3.1"
+    },
+    "strip-bom@2.0.0": {
+      "name": "strip-bom",
+      "version": "2.0.0",
+      "resolved": "registry:strip-bom@2.0.0"
+    },
+    "bun.sh@1.3.14": {
+      "name": "bun.sh",
+      "version": "1.3.14",
+      "resolved": "registry:bun.sh@1.3.14"
+    },
+    "safe-buffer@5.1.2": {
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "resolved": "registry:safe-buffer@5.1.2"
+    },
+    "array-find-index@1.0.2": {
+      "name": "array-find-index",
+      "version": "1.0.2",
+      "resolved": "registry:array-find-index@1.0.2"
+    },
+    "hasown@2.0.4": {
+      "name": "hasown",
+      "version": "2.0.4",
+      "resolved": "registry:hasown@2.0.4"
+    },
+    "pinkie@2.0.4": {
+      "name": "pinkie",
+      "version": "2.0.4",
+      "resolved": "registry:pinkie@2.0.4"
+    },
+    "indent-string@2.1.0": {
+      "name": "indent-string",
+      "version": "2.1.0",
+      "resolved": "registry:indent-string@2.1.0"
+    },
+    "onetime@2.0.1": {
+      "name": "onetime",
+      "version": "2.0.1",
+      "resolved": "registry:onetime@2.0.1"
+    },
+    "shebang-regex@1.0.0": {
+      "name": "shebang-regex",
+      "version": "1.0.0",
+      "resolved": "registry:shebang-regex@1.0.0"
+    },
+    "strip-indent@1.0.1": {
+      "name": "strip-indent",
+      "version": "1.0.1",
+      "resolved": "registry:strip-indent@1.0.1"
+    },
+    "read-pkg-up@1.0.1": {
+      "name": "read-pkg-up",
+      "version": "1.0.1",
+      "resolved": "registry:read-pkg-up@1.0.1"
+    },
+    "xmlbuilder@8.2.2": {
+      "name": "xmlbuilder",
+      "version": "8.2.2",
+      "resolved": "registry:xmlbuilder@8.2.2"
+    },
+    "repeating@2.0.1": {
+      "name": "repeating",
+      "version": "2.0.1",
+      "resolved": "registry:repeating@2.0.1"
+    },
+    "semver@2.0.0-alpha": {
+      "name": "semver",
+      "version": "2.0.0-alpha",
+      "resolved": "registry:semver@2.0.0-alpha"
+    },
+    "unorm@1.6.0": {
+      "name": "unorm",
+      "version": "1.6.0",
+      "resolved": "registry:unorm@1.6.0"
+    },
+    "macos-alias@0.2.12": {
+      "name": "macos-alias",
+      "version": "0.2.12",
+      "resolved": "registry:macos-alias@0.2.12"
+    },
+    "base32-encode@0.1.1": {
+      "name": "base32-encode",
+      "version": "0.1.1",
+      "resolved": "registry:base32-encode@0.1.1"
+    },
+    "supports-preserve-symlinks-flag@1.0.0": {
+      "name": "supports-preserve-symlinks-flag",
+      "version": "1.0.0",
+      "resolved": "registry:supports-preserve-symlinks-flag@1.0.0"
+    },
+    "process-nextick-args@2.0.1": {
+      "name": "process-nextick-args",
+      "version": "2.0.1",
+      "resolved": "registry:process-nextick-args@2.0.1"
+    },
+    "shebang-command@1.2.0": {
+      "name": "shebang-command",
+      "version": "1.2.0",
+      "resolved": "registry:shebang-command@1.2.0"
+    },
+    "stream-buffers@2.2.0": {
+      "name": "stream-buffers",
+      "version": "2.2.0",
+      "resolved": "registry:stream-buffers@2.2.0"
+    },
+    "image-size@0.5.5": {
+      "name": "image-size",
+      "version": "0.5.5",
+      "resolved": "registry:image-size@0.5.5"
+    },
+    "xtend@4.0.2": {
+      "name": "xtend",
+      "version": "4.0.2",
+      "resolved": "registry:xtend@4.0.2"
+    },
+    "spdx-license-ids@3.0.23": {
+      "name": "spdx-license-ids",
+      "version": "3.0.23",
+      "resolved": "registry:spdx-license-ids@3.0.23"
+    },
+    "pinkie-promise@2.0.1": {
+      "name": "pinkie-promise",
+      "version": "2.0.1",
+      "resolved": "registry:pinkie-promise@2.0.1"
+    },
+    "mkdirp@0.5.6": {
+      "name": "mkdirp",
+      "version": "0.5.6",
+      "resolved": "registry:mkdirp@0.5.6"
+    },
+    "path-exists@2.1.0": {
+      "name": "path-exists",
+      "version": "2.1.0",
+      "resolved": "registry:path-exists@2.1.0"
+    },
+    "generate-object-property@1.2.0": {
+      "name": "generate-object-property",
+      "version": "1.2.0",
+      "resolved": "registry:generate-object-property@1.2.0"
+    },
+    "is-finite@1.1.0": {
+      "name": "is-finite",
+      "version": "1.1.0",
+      "resolved": "registry:is-finite@1.1.0"
+    },
+    "jsonpointer@5.0.1": {
+      "name": "jsonpointer",
+      "version": "5.0.1",
+      "resolved": "registry:jsonpointer@5.0.1"
+    },
+    "random-path@0.1.2": {
+      "name": "random-path",
+      "version": "0.1.2",
+      "resolved": "registry:random-path@0.1.2"
+    }
+  }
+}
