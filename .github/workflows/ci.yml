@@ -104,8 +104,9 @@ jobs:
           # bundle executable with no arguments, which is exactly how
           # LaunchServices starts it — so this also proves the manifest is
           # being read.
-          # Captured, not piped: `grep -q` closes the pipe on its first match,
-          # the app takes SIGPIPE, and `pipefail` then reports a failure for a
-          # run that actually succeeded.
-          output="$(dist/Hush.app/Contents/MacOS/Hush --benchmark)"
+          # Both streams, and captured rather than piped. Craft reports through
+          # its log facility, which is stderr, and `grep -q` would close the
+          # pipe on its first match — the app takes SIGPIPE and `pipefail`
+          # turns a successful run into a failed step.
+          output="$(dist/Hush.app/Contents/MacOS/Hush --benchmark 2>&1)"
           grep -q ready <<< "$output"
