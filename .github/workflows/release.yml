@@ -35,7 +35,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build the Craft runtime
-        run: scripts/setup-craft.sh --path
+        run: scripts/setup-craft.sh
 
       - name: Lint
         run: bun run lint
@@ -51,9 +51,7 @@ jobs:
         run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
       - name: Build app and DMG
-        run: |
-          eval "$(scripts/setup-craft.sh)"
-          bun run package
+        run: bun run package
 
       # Signing stays optional so a release still completes before the
       # certificates are in place — but an unsigned build is announced loudly

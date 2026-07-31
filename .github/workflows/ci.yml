@@ -59,12 +59,10 @@ jobs:
           key: craft-${{ runner.os }}-${{ runner.arch }}-${{ steps.craft.outputs.version }}
 
       - name: Build the Craft runtime
-        run: scripts/setup-craft.sh --path
+        run: scripts/setup-craft.sh
 
       - name: Build app and DMG
-        run: |
-          eval "$(scripts/setup-craft.sh)"
-          bun run package
+        run: bun run package
 
       - name: Verify the bundle is complete
         run: |
