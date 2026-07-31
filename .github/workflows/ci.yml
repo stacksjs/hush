@@ -87,6 +87,13 @@ jobs:
 
           ls dist/*.dmg >/dev/null
 
+      - name: End-to-end against the built bundle
+        # Drives the compiled document and the real client bundle in a DOM
+        # against a mocked bridge. This is what catches the template and the
+        # bundle drifting apart — a failure mode that leaves the unit suite
+        # green and every control in the app inert.
+        run: bun test test/e2e.test.ts --preload ./test-utils/dom.ts
+
       - name: Verify the app launches
         run: |
           set -euo pipefail

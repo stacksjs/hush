@@ -14,6 +14,7 @@
         "bun-git-hooks": "^0.3.1",
         "pickier": "^0.1.44",
         "typescript": "^5.8.3",
+        "very-happy-dom": "^0.1.10",
       },
     },
   },
@@ -83,5 +84,7 @@
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "undici-types": ["undici-types@8.3.0", "", {}, "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="],
+
+    "very-happy-dom": ["very-happy-dom@0.1.10", "", {}, "sha512-MOo3hmxPPMVXW9yrqGtu43FOfMMQ7e6IgNSa10KkCShL0jmoIQi1ISFiyIIVJoCVE9UdVskO++hwJAKWWFoy5w=="],
   }
 }

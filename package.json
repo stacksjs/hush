@@ -57,7 +57,8 @@
     "@types/bun": "^1.2.13",
     "bun-git-hooks": "^0.3.1",
     "pickier": "^0.1.44",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "very-happy-dom": "^0.1.10"
   },
   "git-hooks": {
     "pre-commit": {
