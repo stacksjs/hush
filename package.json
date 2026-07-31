@@ -49,8 +49,8 @@
     "typecheck": "bun --bun tsc --noEmit"
   },
   "dependencies": {
-    "@stacksjs/desktop": "^0.2.126",
-    "@stacksjs/stx": "^0.2.126"
+    "@stacksjs/desktop": "^0.2.128",
+    "@stacksjs/stx": "^0.2.128"
   },
   "devDependencies": {
     "@stacksjs/bumpx": "^0.2.10",

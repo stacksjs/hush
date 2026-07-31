@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { installMockBridge } from '@stacksjs/desktop/test-utils'
+import { findCall, installMockBridge } from '@stacksjs/desktop/test-utils'
 import { DEFAULT_PREFERENCES } from '../src/core/preferences'
 import { HushController } from '../src/runtime/controller'
 import { resetStorageCache } from '../src/runtime/storage'
@@ -52,12 +52,16 @@ describe('HushController', () => {
 
   beforeEach(() => {
     resetStorageCache()
-    bridge = installMockBridge(['fs', 'shell', 'focus', 'screenSharing', 'notifications', 'autoLaunch'])
+    bridge = installMockBridge(['fs', 'shell', 'focus', 'screenSharing', 'notifications', 'autoLaunch', 'permissions'])
     files = installFakeFs(bridge)
     bridge.whenCalled('screenSharing', 'getState', () => IDLE)
     bridge.whenCalled('screenSharing', 'watch', () => ({ ok: true, intervalMs: 2000 }))
     bridge.whenCalled('screenSharing', 'unwatch', () => ({ ok: true }))
     bridge.whenCalled('focus', 'listShortcuts', () => ['Hush Focus On', 'Hush Focus Off'])
+    bridge.whenCalled('focus', 'listShortcutsResult', () => ({ canList: true, shortcuts: ['Hush Focus On', 'Hush Focus Off'] }))
+    bridge.whenCalled('permissions', 'check', () => 'granted')
+    bridge.whenCalled('permissions', 'request', () => 'granted')
+    bridge.whenCalled('permissions', 'openSettings', () => undefined)
     bridge.whenCalled('focus', 'setEnabled', () => ({ ok: true, strategy: 'shortcut', exitCode: 0 }))
     bridge.whenCalled('notifications', 'show', () => undefined)
     bridge.whenCalled('autoLaunch', 'isEnabled', () => false)
@@ -79,7 +83,7 @@ describe('HushController', () => {
   })
 
   it('reports setup as incomplete when a shortcut is missing', async () => {
-    bridge.whenCalled('focus', 'listShortcuts', () => ['Hush Focus On'])
+    bridge.whenCalled('focus', 'listShortcutsResult', () => ({ canList: true, shortcuts: ['Hush Focus On'] }))
     const c = new HushController()
     await c.start()
     expect(c.snapshot().shortcutsReady).toBe(false)
@@ -89,7 +93,7 @@ describe('HushController', () => {
   it('still watches for sharing when the shortcuts are missing', async () => {
     // The status is more useful when it reflects reality, and the user may add
     // the shortcuts while Hush is running.
-    bridge.whenCalled('focus', 'listShortcuts', () => [])
+    bridge.whenCalled('focus', 'listShortcutsResult', () => ({ canList: true, shortcuts: [] }))
     const c = new HushController()
     await c.start()
     emitShare(SHARING)
@@ -193,6 +197,35 @@ describe('HushController', () => {
     const off = c.subscribe(() => { seen++ })
     expect(seen).toBe(1)
     off()
+    await c.stop()
+  })
+
+  it('reports setup as unknown when the sandbox cannot enumerate shortcuts', async () => {
+    // An empty list there would read as "no shortcuts installed" and push a
+    // user who finished setup back through it.
+    bridge.whenCalled('focus', 'listShortcutsResult', () => ({ canList: false, shortcuts: [] }))
+    const c = new HushController()
+    await c.start()
+    expect(c.snapshot().shortcutsReady).toBe('unknown')
+    await c.stop()
+  })
+
+  it('reads the Screen Recording grant on start', async () => {
+    bridge.whenCalled('permissions', 'check', () => 'denied')
+    const c = new HushController()
+    await c.start()
+    expect(c.snapshot().screenRecording).toBe('denied')
+    await c.stop()
+  })
+
+  it('sends the user to System Settings when the grant is not undetermined', async () => {
+    // macOS prompts once; after that the switch has to be flipped by hand, so
+    // a button that only re-requests would do nothing at all.
+    bridge.whenCalled('permissions', 'check', () => 'denied')
+    const c = new HushController()
+    await c.start()
+    await c.requestScreenRecording()
+    expect(findCall(bridge.calls, 'permissions', 'openSettings')).toBeDefined()
     await c.stop()
   })
 

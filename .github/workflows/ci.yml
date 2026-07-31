@@ -68,10 +68,15 @@ jobs:
         run: |
           set -euo pipefail
           APP=dist/Hush.app
-          test -x "$APP/Contents/MacOS/Hush"
-          test -x "$APP/Contents/MacOS/craft"
-          test -f "$APP/Contents/Resources/index.html"
           test -f "$APP/Contents/Info.plist"
+          test -f "$APP/Contents/Resources/index.html"
+          test -f "$APP/Contents/Resources/craft.json"
+
+          # CFBundleExecutable must be a Mach-O image. A shell launcher works
+          # for a direct download but is rejected by the Mac App Store, so the
+          # shape is asserted rather than assumed.
+          file -b "$APP/Contents/MacOS/Hush" | grep -q 'Mach-O'
+          test ! -e "$APP/Contents/MacOS/craft"
 
           # The usage description is what makes Focus status readable at all;
           # a bundle missing it fails silently at runtime.
@@ -80,10 +85,8 @@ jobs:
           # Menubar-only. Without this the app takes a dock slot.
           test "$(plutil -extract LSUIElement raw "$APP/Contents/Info.plist")" = "true"
 
-          # The launcher must reference the bundled runtime, never a path from
-          # the build machine.
-          grep -q '"\$DIR/craft"' "$APP/Contents/MacOS/Hush"
-          ! grep -q '/Users/' "$APP/Contents/MacOS/Hush"
+          # Nothing in the bundle may reference a path from the build machine.
+          ! grep -rq '/Users/runner' "$APP/Contents/Resources/craft.json"
 
           ls dist/*.dmg >/dev/null
 
@@ -97,8 +100,12 @@ jobs:
       - name: Verify the app launches
         run: |
           set -euo pipefail
-          # Craft's benchmark mode creates the window, reports ready and exits,
-          # which proves the runtime accepts the compiled document.
-          dist/Hush.app/Contents/MacOS/craft \
-            --html-file dist/Hush.app/Contents/Resources/index.html \
-            --benchmark --quiet | grep -q ready
+          # Benchmark mode creates the window, reports ready and exits. Run the
+          # bundle executable with no arguments, which is exactly how
+          # LaunchServices starts it — so this also proves the manifest is
+          # being read.
+          # Captured, not piped: `grep -q` closes the pipe on its first match,
+          # the app takes SIGPIPE, and `pipefail` then reports a failure for a
+          # run that actually succeeded.
+          output="$(dist/Hush.app/Contents/MacOS/Hush --benchmark)"
+          grep -q ready <<< "$output"

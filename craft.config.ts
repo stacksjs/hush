@@ -18,12 +18,19 @@ export interface HushAppConfig {
   window: { title: string, width: number, height: number }
   /** Extra Info.plist keys merged into the bundle. */
   infoPlist: Record<string, string | number | boolean>
+  /**
+   * Entitlements for a direct download (Developer ID, hardened runtime) and
+   * for the Mac App Store (sandboxed). They are genuinely different documents:
+   * the store requires the sandbox, and the sandbox forbids the process
+   * spawning that the direct build uses to run Focus shortcuts.
+   */
+  entitlements: { direct: string, appStore: string }
 }
 
 export const config: HushAppConfig = {
   name: 'Hush',
   bundleId: 'org.stacksjs.hush',
-  craftVersion: '0.0.56',
+  craftVersion: '0.0.58',
   category: 'public.app-category.productivity',
   // Focus status via INFocusStatusCenter needs macOS 12; 13 is the oldest
   // release still receiving security updates, so there is no reason to claim
@@ -47,6 +54,11 @@ export const config: HushAppConfig = {
     NSHumanReadableCopyright: `Copyright © ${new Date().getFullYear()} Stacks.js. MIT licensed.`,
     // Menubar-only: no dock icon, no app switcher entry.
     LSUIElement: true,
+  },
+
+  entitlements: {
+    direct: 'build/entitlements.plist',
+    appStore: 'build/entitlements.appstore.plist',
   },
 }
 

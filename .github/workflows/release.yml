@@ -90,11 +90,8 @@ jobs:
           IDENTITY: ${{ steps.apple.outputs.apple-signing-identity }}
         run: |
           set -euo pipefail
-          # The Craft runtime inside the bundle is a separate Mach-O and has to
-          # be signed first, or the outer signature seals an unsigned
-          # executable and verification fails.
-          codesign --force --options runtime --timestamp \
-            --sign "$IDENTITY" dist/Hush.app/Contents/MacOS/craft
+          # One Mach-O in the bundle — Craft is CFBundleExecutable itself — so
+          # a single signature covers everything.
           codesign --force --options runtime --timestamp \
             --entitlements build/entitlements.plist \
             --sign "$IDENTITY" dist/Hush.app
@@ -126,6 +123,65 @@ jobs:
           # Gatekeeper does not have to be online to verify it.
           xcrun stapler staple "$DMG"
           xcrun stapler validate "$DMG"
+
+      # ── Mac App Store ───────────────────────────────────────────────────
+      # Runs only when the store credentials are configured. A direct-download
+      # release stays useful on its own, so a missing App Store setup must not
+      # fail the whole release.
+      - name: Check for App Store credentials
+        id: appstore
+        env:
+          INSTALLER_CERT: ${{ secrets.APPLE_INSTALLER_CERTIFICATE }}
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+        run: |
+          if [ -n "${INSTALLER_CERT:-}" ] && [ -n "${API_KEY_ID:-}" ]; then
+            echo "submit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "submit=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::App Store credentials not configured — publishing the direct download only."
+          fi
+
+      - name: Import App Store signing certificates
+        if: steps.appstore.outputs.submit == 'true'
+        id: appstore-signing
+        uses: home-lang/pantry/packages/action@main
+        with:
+          install: 'false'
+          apple-signing: 'true'
+          apple-signing-application-certificate: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE }}
+          apple-signing-installer-certificate: ${{ secrets.APPLE_INSTALLER_CERTIFICATE }}
+          apple-signing-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          apple-signing-provisioning-profile: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+
+      - name: Build the App Store package
+        if: steps.appstore.outputs.submit == 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ steps.appstore-signing.outputs.apple-signing-identity }}
+          APPLE_INSTALLER_SIGNING_IDENTITY: ${{ steps.appstore-signing.outputs.apple-signing-installer-identity }}
+          APPLE_PROVISIONING_PROFILE_PATH: ${{ steps.appstore-signing.outputs.apple-signing-provisioning-profile }}
+        run: |
+          # Rebuild first: the direct-download signing above applied the
+          # hardened-runtime entitlements, and the store needs the sandboxed
+          # set on an otherwise identical bundle.
+          bun run build
+          scripts/package-appstore.sh
+
+      - name: Upload to App Store Connect
+        if: steps.appstore.outputs.submit == 'true'
+        uses: home-lang/pantry/packages/action@main
+        with:
+          install: 'false'
+          release-app-store: 'true'
+          release-app-store-package: dist/Hush-${{ steps.version.outputs.version }}.pkg
+          release-app-store-bundle-id: org.stacksjs.hush
+          release-app-store-version: ${{ steps.version.outputs.version }}
+          release-app-store-build-number: ${{ github.run_number }}
+          release-app-store-api-key-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          release-app-store-issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          release-app-store-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          # Re-running a release must not fail on a build number App Store
+          # Connect already has.
+          release-app-store-retry-existing: 'true'
 
       - name: Publish the GitHub release
         uses: home-lang/pantry/packages/action@main

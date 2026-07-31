@@ -47,8 +47,13 @@ function render(state: HushState): void {
     sources.hidden = state.share.sources.length === 0
   }
 
+  // `unknown` — the sandbox cannot enumerate shortcuts — shows no prompt.
+  // Nagging someone who has already finished setup is worse than silence.
   const setup = el('setup')
-  if (setup) setup.hidden = state.shortcutsReady
+  if (setup) setup.hidden = state.shortcutsReady !== false
+
+  const recording = el('recording')
+  if (recording) recording.hidden = state.screenRecording === 'granted'
 
   setChecked('pref-automatic', state.prefs.automaticallyEnable)
   setChecked('pref-keep', state.prefs.keepEnabledAfterSharing)
@@ -81,6 +86,10 @@ async function boot(): Promise<void> {
 
   el('recheck-shortcuts')?.addEventListener('click', () => {
     void controller.refreshShortcuts().then(() => render(controller.snapshot()))
+  })
+
+  el('grant-recording')?.addEventListener('click', () => {
+    void controller.requestScreenRecording()
   })
 
   el('quit')?.addEventListener('click', () => {

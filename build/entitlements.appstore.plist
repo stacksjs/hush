@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Mac App Store build. The sandbox is mandatory here, and it is what makes
+      this document different from build/entitlements.plist rather than a copy
+      of it: the direct build runs Focus shortcuts by spawning
+      /usr/bin/shortcuts, which the sandbox forbids outright. The sandboxed
+      build asks LaunchServices to open shortcuts://run-shortcut instead —
+      Craft picks that route automatically once it sees the sandbox.
+    -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!--
+      The Craft runtime evaluates JavaScript in a WKWebView, and the hardened
+      runtime blocks JIT-compiled code without this.
+    -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!--
+      Hush writes preferences.json and statistics.json. Under the sandbox these
+      live in the app's container, which needs no entitlement — this covers the
+      user picking an export location, and nothing wider.
+    -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+</dict>
+</plist>

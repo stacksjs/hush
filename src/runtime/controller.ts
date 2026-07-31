@@ -1,9 +1,9 @@
 import type { PolicyState, Preferences, ShareState, Statistics } from '../core/types'
 import {
   focus,
-  hasFocusShortcuts,
   nativeAutoLaunch,
   notifications,
+  permissions,
   screenSharing,
   watchScreenSharing,
 } from '@stacksjs/desktop/browser'
@@ -40,9 +40,22 @@ export interface HushState {
    * Whether both Focus shortcuts exist. Until they do, Hush can observe
    * sharing but cannot act on it, and the UI says so instead of failing
    * silently at the moment a meeting starts.
+   *
+   * `unknown` inside the App Sandbox, where enumerating shortcuts is not
+   * possible. Nagging a user who has already done the setup is worse than
+   * saying nothing, so `unknown` shows no prompt.
    */
-  shortcutsReady: boolean
+  shortcutsReady: boolean | 'unknown'
+  /**
+   * Screen Recording permission, which macOS requires before it will report
+   * window titles. Without it the conference and recording signals cannot
+   * fire, and Hush can only see system screen sharing.
+   */
+  screenRecording: PermissionStatus
 }
+
+/** Mirrors the desktop package's status values. */
+export type PermissionStatus = 'granted' | 'denied' | 'restricted' | 'undetermined' | 'not-supported'
 
 export type StateListener = (state: HushState) => void
 
@@ -53,7 +66,8 @@ export class HushController {
   private stats: Statistics = emptyStatistics(Date.now())
   private share: ShareState = IDLE_SHARE
   private policy: PolicyState = initialPolicyState()
-  private shortcutsReady = false
+  private shortcutsReady: boolean | 'unknown' = 'unknown'
+  private screenRecording: PermissionStatus = 'undetermined'
   private listeners = new Set<StateListener>()
   private stopWatching: (() => void) | null = null
 
@@ -74,6 +88,7 @@ export class HushController {
     this.stats = parseStatistics(statsText, now)
 
     await this.refreshShortcuts()
+    await this.refreshScreenRecording()
     await this.syncLaunchAtLogin()
 
     this.share = await screenSharing.getState()
@@ -103,6 +118,7 @@ export class HushController {
       engaged: this.policy.engaged,
       status: describe(this.share.sharing, this.share.sources, this.policy.engaged),
       shortcutsReady: this.shortcutsReady,
+      screenRecording: this.screenRecording,
     }
   }
 
@@ -137,13 +153,42 @@ export class HushController {
     this.emit()
   }
 
-  /** Re-check whether the Focus shortcuts exist, e.g. after setup. */
-  async refreshShortcuts(): Promise<boolean> {
-    this.shortcutsReady = await hasFocusShortcuts(
-      this.prefs.focusOnShortcut,
-      this.prefs.focusOffShortcut,
-    )
+  /**
+   * Re-check whether the Focus shortcuts exist, e.g. after setup.
+   *
+   * Returns `'unknown'` where enumeration is impossible rather than guessing.
+   */
+  async refreshShortcuts(): Promise<boolean | 'unknown'> {
+    const result = await focus.listShortcutsResult()
+    this.shortcutsReady = result.canList
+      ? result.shortcuts.includes(this.prefs.focusOnShortcut)
+      && result.shortcuts.includes(this.prefs.focusOffShortcut)
+      : 'unknown'
     return this.shortcutsReady
+  }
+
+  /**
+   * Re-read the Screen Recording grant.
+   *
+   * Conference detection reads window titles, which macOS withholds without
+   * this permission — so without it Hush silently degrades to system
+   * screen-sharing only. The UI says so rather than looking broken.
+   */
+  async refreshScreenRecording(): Promise<PermissionStatus> {
+    this.screenRecording = await permissions.check('screen_recording')
+    return this.screenRecording
+  }
+
+  /** Ask for Screen Recording, or send the user to System Settings. */
+  async requestScreenRecording(): Promise<PermissionStatus> {
+    this.screenRecording = this.screenRecording === 'undetermined'
+      ? await permissions.request('screen_recording')
+      : this.screenRecording
+    // macOS only ever prompts once; after that the switch has to be flipped by
+    // hand, so send the user straight to the pane instead of a dead button.
+    if (this.screenRecording !== 'granted') await permissions.openSettings('screen_recording')
+    this.emit()
+    return this.screenRecording
   }
 
   private async onShareChange(state: ShareState): Promise<void> {
@@ -176,6 +221,8 @@ export class HushController {
 
     if (!result.ok) {
       this.policy = { engaged: !enabling, pending: null }
+      // A failed run is direct evidence the shortcut is not usable, which is
+      // worth more than an enumeration we may not be allowed to perform.
       this.shortcutsReady = false
       await this.notify(
         'Hush could not change Focus',

@@ -181,6 +181,17 @@ const statRows = [
       </ol>
     </section>
 
+    <section class="panel" id="recording" hidden>
+      <div class="row">
+        <strong>Allow Screen Recording</strong>
+        <button type="button" id="grant-recording">Open Settings</button>
+      </div>
+      <p class="muted" style="margin-top: 6px; font-size: 12px;">
+        macOS only reveals window titles to apps with this permission, and titles are how
+        {{ appName }} spots a Zoom or Meet share. Without it, only macOS Screen Sharing is detected.
+      </p>
+    </section>
+
     <section class="panel">
       <div class="row">
         <label for="toggle-focus">

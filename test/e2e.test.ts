@@ -79,6 +79,10 @@ function boot(overrides: Record<string, (...args: any[]) => unknown> = {}): Harn
   responses.set('fs:writeFile', (path: string, data: string) => { files.set(String(path), String(data)) })
   responses.set('fs:mkdir', () => undefined)
   responses.set('focus:listShortcuts', () => ['Hush Focus On', 'Hush Focus Off'])
+  responses.set('focus:listShortcutsResult', () => ({ canList: true, shortcuts: ['Hush Focus On', 'Hush Focus Off'] }))
+  responses.set('permissions:check', () => 'granted')
+  responses.set('permissions:request', () => 'granted')
+  responses.set('permissions:openSettings', () => undefined)
   responses.set('focus:setEnabled', () => ({ ok: true, strategy: 'shortcut', exitCode: 0 }))
   responses.set('screenSharing:getState', () => IDLE)
   responses.set('screenSharing:watch', () => ({ ok: true, intervalMs: 2000 }))
@@ -161,6 +165,8 @@ suite('Hush end to end (built bundle in a DOM)', () => {
       'sources',
       'setup',
       'recheck-shortcuts',
+      'recording',
+      'grant-recording',
       'toggle-focus',
       'pref-automatic',
       'pref-keep',
@@ -187,11 +193,28 @@ suite('Hush end to end (built bundle in a DOM)', () => {
   })
 
   it('shows the setup panel and its instructions when a shortcut is missing', async () => {
-    h = boot({ 'focus:listShortcuts': () => ['Hush Focus On'] })
+    h = boot({ 'focus:listShortcutsResult': () => ({ canList: true, shortcuts: ['Hush Focus On'] }) })
     await h.settle()
     expect(h.hidden('setup')).toBe(false)
     expect(h.text('setup')).toContain('Hush Focus On')
     expect(h.text('setup')).toContain('Set Focus')
+  })
+
+  it('hides the Screen Recording prompt when the permission is granted', async () => {
+    expect(h.hidden('recording')).toBe(true)
+  })
+
+  it('shows the Screen Recording prompt when it is not granted', async () => {
+    h = boot({ 'permissions:check': () => 'denied' })
+    await h.settle()
+    expect(h.hidden('recording')).toBe(false)
+    expect(h.text('recording')).toContain('Screen Recording')
+  })
+
+  it('shows no setup prompt when the sandbox cannot enumerate shortcuts', async () => {
+    h = boot({ 'focus:listShortcutsResult': () => ({ canList: false, shortcuts: [] }) })
+    await h.settle()
+    expect(h.hidden('setup')).toBe(true)
   })
 
   it('reflects preference defaults in the checkboxes', async () => {
@@ -289,10 +312,11 @@ suite('Hush end to end (built bundle in a DOM)', () => {
   })
 
   it('the re-check button asks the bridge again', async () => {
-    const before = h.calls.filter(c => c.ns === 'focus' && c.method === 'listShortcuts').length
+    const count = () => h.calls.filter(c => c.ns === 'focus' && c.method === 'listShortcutsResult').length
+    const before = count()
     h.click('recheck-shortcuts')
     await h.settle()
-    const after = h.calls.filter(c => c.ns === 'focus' && c.method === 'listShortcuts').length
+    const after = count()
     expect(after).toBeGreaterThan(before)
   })
 
