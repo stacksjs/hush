@@ -91,50 +91,48 @@ by tests that need neither a window nor a Mac.
 bun run release:patch   # or release:minor / release:major
 ```
 
-bumpx bumps the version, commits, tags and pushes. The tag triggers the
-release workflow, which builds the app, signs and notarizes it when the Apple
-secrets are configured, and publishes a GitHub release through the pantry
-action with generated notes, a checksums manifest and the DMG attached.
+bumpx bumps the version, commits, tags and pushes. The tag triggers the release
+workflow, which produces two artifacts from the same build:
 
-## Privacy
+- **Direct download** — hardened-runtime, Developer ID signed, notarized and
+  stapled, published as a GitHub release with generated notes and a checksums
+  manifest through the pantry action.
+- **Mac App Store** — sandboxed, distribution signed, wrapped in a `.pkg` by
+  `scripts/package-appstore.sh` and uploaded to App Store Connect.
 
-Hush only detects screen sharing state locally on your Mac and doesn't collect or transmit any data.
+Both steps are conditional on their secrets. Without them the release still
+completes as an unsigned direct download and says so, rather than failing.
 
-## Changelog
+### Secrets
 
-Please see our [CHANGELOG.md](CHANGELOG.md) for more information on what has changed recently.
+| Secret | Used for |
+| --- | --- |
+| `APPLE_APPLICATION_CERTIFICATE` | Developer ID signing (direct download) |
+| `APPLE_CERTIFICATE_PASSWORD` | password for the `.p12` files |
+| `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID` | notarization |
+| `APPLE_DISTRIBUTION_CERTIFICATE` | Apple Distribution signing (store) |
+| `APPLE_INSTALLER_CERTIFICATE` | 3rd Party Mac Developer Installer |
+| `APPLE_PROVISIONING_PROFILE` | embedded in the store bundle |
+| `APP_STORE_CONNECT_API_KEY_ID`, `..._ISSUER_ID`, `..._PRIVATE_KEY` | the upload |
 
-## Contributing
+Certificates and profiles are base64-encoded.
 
-Please see the [Contributing Guide](.github/CONTRIBUTING.md) for details.
+### Why the two builds differ
 
-## Community
+They are not the same binary signed twice. The store requires the App Sandbox,
+and the sandbox forbids spawning `/usr/bin/shortcuts` — the mechanism the
+direct build uses to set Focus. Craft detects the sandbox and switches to
+`shortcuts://run-shortcut`, which LaunchServices permits. The entitlements are
+separate documents for the same reason.
 
-For help, discussion about best practices, or any other conversation that would benefit from being searchable:
+The store also requires `CFBundleExecutable` to be a Mach-O image, so Craft is
+the bundle's executable and reads `Resources/craft.json` beside it. There is no
+launcher script. CI asserts this shape on every push.
 
-[Discussions on GitHub](https://github.com/username/hush/discussions)
+### Known limitations under the sandbox
 
-## Postcardware
-
-"Software that is free, but hopes for a postcard." We love receiving postcards from around the world showing where Stacks is being used! We showcase them on our website too.
-
-Our address: Stacks.js, 12665 Village Ln #2306, Playa Vista, CA 90094, United States 🌎
-
-## Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Stacks development. If you are interested in becoming a sponsor, please reach out to us.
-
-- [JetBrains](https://www.jetbrains.com/)
-- [The Solana Foundation](https://solana.com/)
-
-## Credits
-
-- [Muzzle](https://github.com/gilbarbara/muzzle) - Thanks for the inspiration!
-- [Chris Breuer](https://github.com/chrisbbreuer)
-- [All Contributors](../../contributors)
-
-## License
-
-The MIT License (MIT). Please see [LICENSE](LICENSE.md) for more information.
-
-Made with 💙
+- Shortcuts cannot be enumerated, so Hush cannot verify the Focus shortcuts
+  exist. It reports "unknown" and stays quiet rather than prompting someone who
+  has already done the setup.
+- Running a shortcut by URL is fire-and-forget: macOS confirms the request
+  reached Shortcuts, never that the shortcut ran.

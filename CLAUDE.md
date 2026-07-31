@@ -46,5 +46,12 @@ Native capabilities live in Craft (`~/Code/Tools/craft`) and are surfaced throug
 ## Releasing
 
 - `bun run release:patch` / `release:minor` / `release:major` — bumpx bumps, commits, tags and pushes
-- The tag triggers `.github/workflows/release.yml`, which builds, optionally signs and notarizes, and publishes the GitHub release through the **pantry** action with generated notes and the DMG attached
+- The tag triggers `.github/workflows/release.yml`, which builds once and produces two artifacts: a notarized DMG published as a GitHub release through the **pantry** action, and a sandboxed `.pkg` uploaded to App Store Connect
 - Release notes come from the commits since the previous tag (`release-changelog: auto`), so conventional messages are what the release page reads
+- Both signing paths are conditional on their secrets; without them the release still completes as an unsigned direct download
+
+## Bundle shape
+
+- Craft is `CFBundleExecutable` and reads `Contents/Resources/craft.json`. There is **no launcher script** — the Mac App Store requires a Mach-O executable, and CI asserts it
+- The Craft runtime is built from source at the tag in `craft.config.ts` (`craftVersion`), because Actions is disabled for the home-lang org and the published craft is stuck at 0.0.37. Bumping Craft means bumping that one field
+- The store build is sandboxed, which changes behaviour rather than just packaging: Focus is set through `shortcuts://run-shortcut` instead of the CLI, and shortcuts cannot be enumerated, so `shortcutsReady` can be `'unknown'`
