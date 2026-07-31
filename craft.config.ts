@@ -10,6 +10,11 @@ export interface HushAppConfig {
   bundleId: string
   category: string
   minimumSystemVersion: string
+  /**
+   * Craft tag the app is built against. `scripts/setup-craft.sh` builds this
+   * exact tag, which pins the runtime as firmly as a package version would.
+   */
+  craftVersion: string
   window: { title: string, width: number, height: number }
   /** Extra Info.plist keys merged into the bundle. */
   infoPlist: Record<string, string | number | boolean>
@@ -18,6 +23,7 @@ export interface HushAppConfig {
 export const config: HushAppConfig = {
   name: 'Hush',
   bundleId: 'org.stacksjs.hush',
+  craftVersion: '0.0.56',
   category: 'public.app-category.productivity',
   // Focus status via INFocusStatusCenter needs macOS 12; 13 is the oldest
   // release still receiving security updates, so there is no reason to claim

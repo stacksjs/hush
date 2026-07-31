@@ -44,14 +44,27 @@ jobs:
 
       - name: Set up pantry
         uses: home-lang/pantry/packages/action@main
-        with:
-          packages: craft
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Read the pinned Craft version
+        id: craft
+        run: echo "version=$(bun --print '(await import(\"./craft.config.ts\")).config.craftVersion')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Craft runtime
+        uses: actions/cache@v5
+        with:
+          path: .craft
+          key: craft-${{ runner.os }}-${{ runner.arch }}-${{ steps.craft.outputs.version }}
+
+      - name: Build the Craft runtime
+        run: scripts/setup-craft.sh --path
+
       - name: Build app and DMG
-        run: bun run package
+        run: |
+          eval "$(scripts/setup-craft.sh)"
+          bun run package
 
       - name: Verify the bundle is complete
         run: |

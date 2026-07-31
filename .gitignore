@@ -27,3 +27,6 @@ bun.lockb
 .zed
 .cursor
 .idea
+
+# Pinned Craft runtime checkout (scripts/setup-craft.sh)
+/.craft
