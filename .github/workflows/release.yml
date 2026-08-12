@@ -19,7 +19,7 @@ jobs:
     name: Build and release
     # Hush is a macOS app and the build assembles a .app bundle, so this has to
     # run on macOS regardless of how much cheaper a Linux runner would be.
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - uses: actions/checkout@v6

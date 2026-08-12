@@ -38,7 +38,7 @@ jobs:
     # Proves the release path on every push: the same script the release
     # workflow runs, producing the same bundle. A packaging break that only
     # shows up at tag time is the expensive kind.
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
 
