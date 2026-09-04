@@ -49,15 +49,15 @@
     "typecheck": "bun --bun tsc --noEmit"
   },
   "dependencies": {
-    "@stacksjs/desktop": "^0.2.128",
-    "@stacksjs/stx": "^0.2.128"
+    "@stacksjs/desktop": "^0.2.274",
+    "@stacksjs/stx": "^0.2.274"
   },
   "devDependencies": {
-    "@stacksjs/bumpx": "^0.2.10",
-    "@types/bun": "^1.2.13",
-    "bun-git-hooks": "^0.3.1",
-    "pickier": "^0.1.44",
-    "typescript": "^5.8.3",
+    "@stacksjs/bumpx": "^0.2.17",
+    "@types/bun": "^1.4.1",
+    "bun-git-hooks": "^0.3.3",
+    "pickier": "^0.1.65",
+    "typescript": "^5.9.3",
     "very-happy-dom": "^0.1.10"
   },
   "git-hooks": {
