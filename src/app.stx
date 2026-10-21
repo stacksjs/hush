@@ -157,7 +157,7 @@ const statRows = [
     <header class="panel">
       <div class="row">
         <h1>{{ appName }}</h1>
-        <span id="focus-state" class="muted">Focus is off</span>
+        <span id="focus-state" class="muted">Hush is idle</span>
       </div>
       <div class="status-line" style="margin-top: 8px;">
         <span class="dot"></span>

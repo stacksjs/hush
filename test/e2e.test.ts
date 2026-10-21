@@ -178,7 +178,7 @@ describe('Hush end to end (built bundle in a DOM)', () => {
 
   it('renders the idle state on boot', async () => {
     expect(h.text('status')).toBe('Not sharing')
-    expect(h.text('focus-state')).toBe('Focus is off')
+    expect(h.text('focus-state')).toBe('Hush is idle')
     expect(h.checked('toggle-focus')).toBe(false)
     expect(h.hidden('sources')).toBe(true)
   })
@@ -298,7 +298,7 @@ describe('Hush end to end (built bundle in a DOM)', () => {
     await h.settle()
 
     expect(findCall(h.calls, 'focus', 'setEnabled')).toBeUndefined()
-    expect(h.text('focus-state')).toBe('Focus is off')
+    expect(h.text('focus-state')).toBe('Hush is idle')
   })
 
   it('the re-check button asks the bridge again', async () => {
@@ -324,7 +324,7 @@ describe('Hush end to end (built bundle in a DOM)', () => {
     h.click('toggle-focus')
     await h.settle()
 
-    expect(h.text('focus-state')).toBe('Focus is off')
+    expect(h.text('focus-state')).toBe('Hush is idle')
     expect(h.checked('toggle-focus')).toBe(false)
     // Setup guidance comes back, because a missing shortcut is what this
     // almost always means.

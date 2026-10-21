@@ -36,7 +36,7 @@ function render(state: HushState): void {
   }
 
   setText('status', state.status)
-  setText('focus-state', state.engaged ? 'Focus is on' : 'Focus is off')
+  setText('focus-state', state.engaged ? 'Focus is on' : 'Hush is idle')
   setChecked('toggle-focus', state.engaged)
 
   const sources = el('sources')
