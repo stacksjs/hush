@@ -344,13 +344,13 @@ describe('HushController', () => {
     await c.stop()
   })
 
-  it('sends the user to System Settings when the grant is not undetermined', async () => {
-    // macOS prompts once; after that the switch has to be flipped by hand, so
-    // a button that only re-requests would do nothing at all.
+  it('opens System Settings when the native Screen Recording request remains denied', async () => {
     bridge.whenCalled('permissions', 'check', () => 'denied')
+    bridge.whenCalled('permissions', 'request', () => 'denied')
     const c = new HushController()
     await c.start()
     await c.requestScreenRecording()
+    expect(findCall(bridge.calls, 'permissions', 'request')).toBeDefined()
     expect(findCall(bridge.calls, 'permissions', 'openSettings')).toBeDefined()
     await c.stop()
   })

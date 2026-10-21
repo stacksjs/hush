@@ -240,9 +240,7 @@ export class HushController {
 
   /** Ask for Screen Recording, or send the user to System Settings. */
   async requestScreenRecording(): Promise<PermissionStatus> {
-    this.screenRecording = this.screenRecording === 'undetermined'
-      ? await permissions.request('screen_recording')
-      : this.screenRecording
+    this.screenRecording = await permissions.request('screen_recording')
     // macOS only ever prompts once; after that the switch has to be flipped by
     // hand, so send the user straight to the pane instead of a dead button.
     if (this.screenRecording !== 'granted') await permissions.openSettings('screen_recording')
