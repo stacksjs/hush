@@ -57,6 +57,8 @@ function render(state: HushState): void {
 
   const recording = el('recording')
   if (recording) recording.hidden = state.screenRecording === 'granted'
+  const accessibility = el('accessibility')
+  if (accessibility) accessibility.hidden = state.accessibility === 'granted'
 
   setChecked('pref-automatic', state.prefs.automaticallyEnable)
   setChecked('pref-keep', state.prefs.keepEnabledAfterSharing)
@@ -101,6 +103,9 @@ async function boot(): Promise<void> {
 
   el('grant-recording')?.addEventListener('click', () => {
     void controller.requestScreenRecording()
+  })
+  el('grant-accessibility')?.addEventListener('click', () => {
+    void controller.requestAccessibility().catch(reportError)
   })
 
   el('quit')?.addEventListener('click', () => {

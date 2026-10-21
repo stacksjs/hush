@@ -203,6 +203,17 @@ const statRows = [
       </p>
     </section>
 
+    <section class="panel" id="accessibility" hidden>
+      <div class="row">
+        <strong>Detect shared browser tabs</strong>
+        <button type="button" id="grant-accessibility">Open Settings</button>
+      </div>
+      <p class="muted" style="margin-top: 6px; font-size: 12px;">
+        Allow Accessibility so {{ appName }} can read Chrome’s native tab-sharing indicator.
+        Window and screen sharing continue to use Screen Recording permission.
+      </p>
+    </section>
+
     <section class="panel">
       <div class="row">
         <label for="toggle-focus">

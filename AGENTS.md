@@ -41,9 +41,8 @@ uses the user's two Focus shortcuts. Never claim a live Focus transition was
 verified when those shortcuts or permissions are absent. Automatic activation
 must first read Focus status and leave a pre-existing Focus alone. Explicit
 `--observe-sharing` and `--exercise-focus` native checks cover live preservation
-and automatic activation/release. Chrome tab-only capture lacks a CoreGraphics
-indicator; do not claim that mode works without a native implementation and a
-live test.
+and automatic activation/release. Chrome tab-only capture uses Craft’s public Accessibility reader and requires
+its separate user grant. Never substitute a fake window title for a live test.
 
 Use conventional commits and the repository's configured human Git identity.
 Push completed changes normally to `origin/main`, with no coauthor trailers.

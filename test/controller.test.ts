@@ -355,6 +355,25 @@ describe('HushController', () => {
     await c.stop()
   })
 
+  it('requests Accessibility only after the explicit setup action', async () => {
+    bridge.whenCalled('permissions', 'check', (name: unknown) => name === 'accessibility' ? 'denied' : 'granted')
+    bridge.whenCalled('permissions', 'request', (name: unknown) => {
+      expect(name).toBe('accessibility')
+      return 'denied'
+    })
+    bridge.whenCalled('permissions', 'openSettings', (name: unknown) => {
+      expect(name).toBe('accessibility')
+    })
+    const c = new HushController()
+    await c.start()
+    expect(c.snapshot().accessibility).toBe('denied')
+    expect(findCall(bridge.calls, 'permissions', 'request')).toBeUndefined()
+    await c.requestAccessibility()
+    expect(findCall(bridge.calls, 'permissions', 'request')?.args).toEqual(['accessibility'])
+    expect(findCall(bridge.calls, 'permissions', 'openSettings')?.args).toEqual(['accessibility'])
+    await c.stop()
+  })
+
   it('a manual toggle takes effect without waiting for a share', async () => {
     const c = new HushController()
     await c.start()

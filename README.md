@@ -33,8 +33,9 @@ independent signals through Craft:
 
 The two window-level signals match native indicators an app shows *only
 while sharing*. Chrome window and screen sharing expose such a control.
-Chrome tab-only capture currently exposes its marker only through accessibility
-text, so the CoreGraphics detector cannot detect that mode. "Zoom is running" describes most of a working day, and acting
+For Chrome tab-only capture, Craft reads the browser-owned native accessibility
+sharing indicator after you grant Accessibility access. Browser queries run on
+a worker with bounded IPC timeouts so they cannot block the app’s UI. "Zoom is running" describes most of a working day, and acting
 on it would silence notifications permanently.
 
 ## Setup
@@ -51,6 +52,10 @@ shortcuts, created once:
 Hush checks for both at launch and tells you if either is missing, rather than
 failing at the moment a meeting starts. You can point it at different names in
 `~/Library/Application Support/Hush/preferences.json`.
+
+Chrome tab-only sharing also needs **Accessibility** permission. Hush’s
+“Detect shared browser tabs” panel opens the native permission setup explicitly;
+launching the app never requests this access.
 
 ## Requirements
 

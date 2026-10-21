@@ -55,8 +55,9 @@ const assertions = `<script>
   const contents = await craft.fs.readFile(${JSON.stringify(nativeFile)});
   if (contents.data !== 'Hush native round trip') throw new Error('Native filesystem round trip failed');
   await stage('sharing state');
-  const state = await craft.screenSharing.getState();
+  const [state, concurrentState] = await Promise.all([craft.screenSharing.getState(), craft.screenSharing.getState()]);
   if (typeof state.sharing !== 'boolean' || !Array.isArray(state.sources)) throw new Error('Invalid native sharing state');
+  if (typeof concurrentState.sharing !== 'boolean') throw new Error('Concurrent native sharing requests lost their response');
   await stage('shortcut enumeration');
   const shortcuts = await craft.focus.listShortcutsResult();
   const missingShortcut = ${JSON.stringify(`Hush native missing ${work.split('/').pop()}`)};
@@ -71,6 +72,7 @@ const assertions = `<script>
   await stage('Focus status');
   const focusStatus = await craft.focus.getStatus();
   const screenRecording = await craft.permissions.check('screen_recording');
+  const accessibility = await craft.permissions.check('accessibility');
   if (screenRecording !== 'granted' && screenRecording !== 'denied') throw new Error('Screen Recording must use the real macOS permission API');
   let liveSharingVerified = false;
   await stage('live sharing');
@@ -106,7 +108,7 @@ const assertions = `<script>
   liveSharingVerified = true;
   ` : ''}
   if (typeof shortcuts.canList !== 'boolean') throw new Error('Invalid native shortcut response');
-  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, screenRecording, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
+  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
   document.getElementById('quit').click();
 })().catch(async function(error) {
   try {

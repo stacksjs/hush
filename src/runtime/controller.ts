@@ -35,6 +35,8 @@ export interface HushState {
    * fire, and Hush can only see system screen sharing.
    */
   screenRecording: PermissionStatus
+  /** Optional Accessibility access for native browser tab-capture indicators. */
+  accessibility: PermissionStatus
 }
 
 /** Mirrors the desktop package's status values. */
@@ -52,6 +54,7 @@ export class HushController {
   private shortcutsReady: boolean | 'unknown' = 'unknown'
   private focusStatusReadable = false
   private screenRecording: PermissionStatus = 'undetermined'
+  private accessibility: PermissionStatus = 'undetermined'
   private listeners = new Set<StateListener>()
   private stopWatching: (() => void | Promise<void>) | null = null
   private transitionTimer: ReturnType<typeof setTimeout> | null = null
@@ -100,6 +103,7 @@ export class HushController {
 
     await this.checkShortcuts()
     await this.refreshScreenRecording()
+    this.accessibility = await permissions.check('accessibility')
     await this.refreshFocusStatus()
     // Respect Login Items changes made in System Settings. Only an explicit
     // preference edit below may register or unregister the item.
@@ -147,6 +151,7 @@ export class HushController {
       status: describe(this.share.sharing, this.share.sources, this.policy.engaged),
       shortcutsReady: this.shortcutsReady,
       screenRecording: this.screenRecording,
+      accessibility: this.accessibility,
     }
   }
 
@@ -246,6 +251,14 @@ export class HushController {
     if (this.screenRecording !== 'granted') await permissions.openSettings('screen_recording')
     this.emit()
     return this.screenRecording
+  }
+
+  /** Tab-capture detection uses the public, permission-gated native AX API. */
+  async requestAccessibility(): Promise<PermissionStatus> {
+    this.accessibility = await permissions.request('accessibility')
+    if (this.accessibility !== 'granted') await permissions.openSettings('accessibility')
+    this.emit()
+    return this.accessibility
   }
 
   private onShareChange(state: ShareState): Promise<void> {

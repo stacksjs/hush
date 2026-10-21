@@ -162,6 +162,8 @@ describe('Hush end to end (built bundle in a DOM)', () => {
       'grant-recording',
       'focus-permission',
       'grant-focus',
+      'accessibility',
+      'grant-accessibility',
       'toggle-focus',
       'pref-automatic',
       'pref-keep',
@@ -204,6 +206,17 @@ describe('Hush end to end (built bundle in a DOM)', () => {
     await h.settle()
     expect(h.hidden('recording')).toBe(false)
     expect(h.text('recording')).toContain('Screen Recording')
+  })
+
+  it('requests tab-capture permission only from its explicit setup control', async () => {
+    h = boot({ 'permissions:check': (name: string) => name === 'accessibility' ? 'denied' : 'granted' })
+    await h.settle()
+    expect(h.hidden('accessibility')).toBe(false)
+    expect(findCall(h.calls, 'permissions', 'request')).toBeUndefined()
+    h.click('grant-accessibility')
+    await h.settle()
+    expect(findCall(h.calls, 'permissions', 'request')?.args).toEqual(['accessibility'])
+    expect(h.hidden('accessibility')).toBe(true)
   })
 
   it('shows no setup prompt when the sandbox cannot enumerate shortcuts', async () => {
