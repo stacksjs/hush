@@ -52,6 +52,9 @@ function render(state: HushState): void {
   const setup = el('setup')
   if (setup) setup.hidden = state.shortcutsReady !== false
 
+  const focusPermission = el('focus-permission')
+  if (focusPermission) focusPermission.hidden = state.focusStatusReadable
+
   const recording = el('recording')
   if (recording) recording.hidden = state.screenRecording === 'granted'
 
@@ -65,13 +68,17 @@ function render(state: HushState): void {
   setText('stat-average', formatDuration(averageSessionSeconds(state.stats)))
 }
 
+function reportError(error: unknown): void {
+  setText('status', error instanceof Error ? error.message : String(error))
+}
+
 function bindCheckbox(id: string, apply: (checked: boolean) => Promise<void>): void {
   const node = el<HTMLInputElement>(id)
   if (!node) return
   node.addEventListener('change', () => {
     // The controller re-renders from its own state, so a rejected or clamped
     // change corrects the checkbox rather than leaving the UI lying.
-    void apply(node.checked)
+    void apply(node.checked).catch(reportError)
   })
 }
 
@@ -88,15 +95,21 @@ async function boot(): Promise<void> {
     void controller.refreshShortcuts().then(() => render(controller.snapshot()))
   })
 
+  el('grant-focus')?.addEventListener('click', () => {
+    void controller.requestFocusAuthorization().catch(reportError)
+  })
+
   el('grant-recording')?.addEventListener('click', () => {
     void controller.requestScreenRecording()
   })
 
   el('quit')?.addEventListener('click', () => {
-    void controller.stop().then(() => app.quit())
+    void controller.stop().then(() => app.quit()).catch(reportError)
   })
 
   await controller.start()
+  const root = el('app')
+  if (root) root.dataset.ready = 'true'
 }
 
-void boot()
+void boot().catch(reportError)

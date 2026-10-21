@@ -43,7 +43,7 @@ function emitShare(state: unknown): void {
 
 /** Let the controller's async change handler settle. */
 async function settle(): Promise<void> {
-  for (let i = 0; i < 8; i++) await Promise.resolve()
+  for (let i = 0; i < 40; i++) await Promise.resolve()
 }
 
 describe('HushController', () => {
@@ -57,12 +57,13 @@ describe('HushController', () => {
     bridge.whenCalled('screenSharing', 'getState', () => IDLE)
     bridge.whenCalled('screenSharing', 'watch', () => ({ ok: true, intervalMs: 2000 }))
     bridge.whenCalled('screenSharing', 'unwatch', () => ({ ok: true }))
+    bridge.whenCalled('focus', 'getStatus', () => ({ supported: true, authorization: 'authorized', isFocused: false }))
     bridge.whenCalled('focus', 'listShortcuts', () => ['Hush Focus On', 'Hush Focus Off'])
     bridge.whenCalled('focus', 'listShortcutsResult', () => ({ canList: true, shortcuts: ['Hush Focus On', 'Hush Focus Off'] }))
     bridge.whenCalled('permissions', 'check', () => 'granted')
     bridge.whenCalled('permissions', 'request', () => 'granted')
     bridge.whenCalled('permissions', 'openSettings', () => undefined)
-    bridge.whenCalled('focus', 'setEnabled', () => ({ ok: true, strategy: 'shortcut', exitCode: 0 }))
+    bridge.whenCalled('focus', 'setEnabled', { ok: true, strategy: 'shortcut', exitCode: 0 })
     bridge.whenCalled('notifications', 'show', () => undefined)
     bridge.whenCalled('autoLaunch', 'isEnabled', () => false)
   })
@@ -164,6 +165,116 @@ describe('HushController', () => {
 
     expect(c.snapshot().engaged).toBe(true)
     await c.stop()
+  })
+
+  it('settles activation and deactivation after a single native change event', async () => {
+    const c = new HushController()
+    await c.start()
+    await c.updatePreferences({ activationDelayMs: 20, deactivationDelayMs: 30 })
+    emitShare(SHARING)
+    await settle()
+    expect(c.snapshot().engaged).toBe(false)
+    await Bun.sleep(40)
+    expect(c.snapshot().engaged).toBe(true)
+    emitShare(IDLE)
+    await settle()
+    await Bun.sleep(50)
+    expect(c.snapshot().engaged).toBe(false)
+    await c.stop()
+  })
+
+  it('cancels a pending activation when the share ends or the app stops', async () => {
+    const c = new HushController()
+    await c.start()
+    await c.updatePreferences({ activationDelayMs: 20 })
+    emitShare(SHARING)
+    await settle()
+    emitShare(IDLE)
+    await settle()
+    await Bun.sleep(40)
+    expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
+    emitShare(SHARING)
+    await settle()
+    await c.stop()
+    await Bun.sleep(40)
+    expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
+  })
+
+  it('does not take ownership of a Focus the user already enabled', async () => {
+    bridge.whenCalled('focus', 'getStatus', () => ({ supported: true, authorization: 'authorized', isFocused: true }))
+    const c = new HushController()
+    await c.start()
+    await c.updatePreferences({ activationDelayMs: 0, deactivationDelayMs: 0 })
+    emitShare(SHARING)
+    await settle()
+    emitShare(IDLE)
+    await settle()
+    expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
+    expect(c.snapshot().engaged).toBe(false)
+    await c.stop()
+  })
+
+  it('waits for readable Focus status instead of overriding an unknown Focus', async () => {
+    bridge.whenCalled('focus', 'getStatus', () => ({ supported: true, authorization: 'notDetermined', isFocused: null }))
+    const c = new HushController()
+    await c.start()
+    await c.updatePreferences({ activationDelayMs: 0 })
+    emitShare(SHARING)
+    await settle()
+    expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
+    expect(c.snapshot().focusStatusReadable).toBe(false)
+    bridge.whenCalled('focus', 'requestAuthorization', () => 'authorized')
+    bridge.whenCalled('focus', 'getStatus', () => ({ supported: true, authorization: 'authorized', isFocused: false }))
+    await c.requestFocusAuthorization()
+    expect(c.snapshot().engaged).toBe(true)
+    await c.stop()
+  })
+
+  it('serializes opposing Focus requests and publishes only completed changes', async () => {
+    const c = new HushController()
+    await c.start()
+    let finish: (result: { ok: boolean }) => void = () => {}
+    bridge.whenCalled('focus', 'setEnabled', () => new Promise(resolve => { finish = resolve }))
+    const enabling = c.toggleFocus(true)
+    await settle()
+    expect(c.snapshot().engaged).toBe(false)
+    const disabling = c.toggleFocus(false)
+    await settle()
+    expect(bridge.calls.filter(call => call.ns === 'focus' && call.method === 'setEnabled')).toHaveLength(1)
+    bridge.whenCalled('focus', 'setEnabled', () => ({ ok: true }))
+    finish({ ok: true })
+    await Promise.all([enabling, disabling])
+    expect(c.snapshot().engaged).toBe(false)
+    expect(c.snapshot().stats.sessions).toBe(1)
+    await c.stop()
+  })
+
+  it('reconciles Login Items from macOS without silently re-registering', async () => {
+    files.set('/Users/test/Library/Application Support/Hush/preferences.json', JSON.stringify({ launchAtLogin: true }))
+    const c = new HushController()
+    await c.start()
+    expect(c.snapshot().prefs.launchAtLogin).toBe(false)
+    expect(findCall(bridge.calls, 'autoLaunch', 'enable')).toBeUndefined()
+    await c.stop()
+  })
+
+  it('corrects a failed Login Items change instead of claiming it was enabled', async () => {
+    bridge.whenCalled('autoLaunch', 'enable', () => false)
+    const c = new HushController()
+    await c.start()
+    await expect(c.updatePreferences({ launchAtLogin: true })).rejects.toThrow('macOS could not change')
+    expect(c.snapshot().prefs.launchAtLogin).toBe(false)
+    expect(JSON.parse([...files.values()][0]!).launchAtLogin).toBe(false)
+    await c.stop()
+  })
+
+  it('releases owned Focus before completing shutdown', async () => {
+    const c = new HushController()
+    await c.start()
+    await c.toggleFocus(true)
+    await c.stop()
+    expect(c.snapshot().engaged).toBe(false)
+    expect(bridge.calls.filter(call => call.ns === 'focus' && call.method === 'setEnabled').map(call => call.args[0])).toEqual([true, false])
   })
 
   it('persists preferences across a restart', async () => {

@@ -1,26 +1,8 @@
 import type { PolicyState, Preferences, ShareState, Statistics } from '../core/types'
-import {
-  focus,
-  nativeAutoLaunch,
-  notifications,
-  permissions,
-  screenSharing,
-  watchScreenSharing,
-} from '@stacksjs/desktop/browser'
+import { focus, nativeAutoLaunch, notifications, permissions, screenSharing, watchScreenSharing } from '@stacksjs/desktop/browser'
 import { describe, evaluate, toggleManually } from '../core/policy'
-import {
-  DEFAULT_PREFERENCES,
-  normalizePreferences,
-  parsePreferences,
-  serializePreferences,
-} from '../core/preferences'
-import {
-  emptyStatistics,
-  parseStatistics,
-  recordActivation,
-  recordDeactivation,
-  serializeStatistics,
-} from '../core/statistics'
+import { DEFAULT_PREFERENCES, normalizePreferences, parsePreferences, serializePreferences } from '../core/preferences'
+import { emptyStatistics, parseStatistics, recordActivation, recordDeactivation, serializeStatistics } from '../core/statistics'
 import { initialPolicyState } from '../core/types'
 import { readDocument, writeDocument } from './storage'
 
@@ -29,6 +11,7 @@ const STATISTICS_FILE = 'statistics.json'
 
 /** Everything the UI renders from. */
 export interface HushState {
+  focusStatusReadable: boolean
   prefs: Preferences
   stats: Statistics
   share: ShareState
@@ -67,9 +50,26 @@ export class HushController {
   private share: ShareState = IDLE_SHARE
   private policy: PolicyState = initialPolicyState()
   private shortcutsReady: boolean | 'unknown' = 'unknown'
+  private focusStatusReadable = false
   private screenRecording: PermissionStatus = 'undetermined'
   private listeners = new Set<StateListener>()
-  private stopWatching: (() => void) | null = null
+  private stopWatching: (() => void | Promise<void>) | null = null
+  private transitionTimer: ReturnType<typeof setTimeout> | null = null
+  private operations: Promise<unknown> = Promise.resolve()
+  private started = false
+  private starting: Promise<void> | null = null
+  private stopped = false
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.operations.then(operation)
+    this.operations = result.catch(() => { this.emit() })
+    return result
+  }
+
+  private cancelTransition(): void {
+    if (this.transitionTimer !== null) clearTimeout(this.transitionTimer)
+    this.transitionTimer = null
+  }
 
   /**
    * Load persisted state, verify the Focus shortcuts, and start watching.
@@ -78,7 +78,18 @@ export class HushController {
    * shows is more useful when it reflects reality, and the user may add the
    * shortcuts while the app is running.
    */
-  async start(): Promise<void> {
+  start(): Promise<void> {
+    if (this.starting) return this.starting
+    if (this.started) return Promise.resolve()
+    this.stopped = false
+    this.starting = this.enqueue(() => this.initialize()).catch((error) => {
+      this.started = false
+      throw error
+    }).finally(() => { this.starting = null })
+    return this.starting
+  }
+
+  private async initialize(): Promise<void> {
     const now = Date.now()
     const [prefsText, statsText] = await Promise.all([
       readDocument(PREFERENCES_FILE),
@@ -89,19 +100,35 @@ export class HushController {
 
     await this.refreshShortcuts()
     await this.refreshScreenRecording()
-    await this.syncLaunchAtLogin()
+    await this.refreshFocusStatus()
+    // Respect Login Items changes made in System Settings. Only an explicit
+    // preference edit below may register or unregister the item.
+    this.prefs.launchAtLogin = await nativeAutoLaunch.isEnabled()
 
     this.share = await screenSharing.getState()
+    this.started = true
     this.stopWatching = await watchScreenSharing(
       state => void this.onShareChange(state),
       this.prefs.detectionIntervalMs,
     )
+    await this.applyPolicy()
     this.emit()
   }
 
-  async stop(): Promise<void> {
-    this.stopWatching?.()
-    this.stopWatching = null
+  stop(): Promise<void> {
+    this.stopped = true
+    this.cancelTransition()
+    return this.enqueue(async () => {
+      await this.stopWatching?.()
+      this.stopWatching = null
+      this.started = false
+      this.policy = { ...this.policy, pending: null }
+      if (this.policy.engaged && !this.prefs.keepEnabledAfterSharing) {
+        await this.perform('disable', false)
+        if (this.policy.engaged) throw new Error('Hush could not release Focus. Retry before quitting.')
+      }
+      this.emit()
+    })
   }
 
   subscribe(listener: StateListener): () => void {
@@ -112,6 +139,7 @@ export class HushController {
 
   snapshot(): HushState {
     return {
+      focusStatusReadable: this.focusStatusReadable,
       prefs: { ...this.prefs },
       stats: { ...this.stats },
       share: { sharing: this.share.sharing, sources: [...this.share.sources] },
@@ -123,16 +151,21 @@ export class HushController {
   }
 
   /** Update preferences, persist them, and re-apply anything they affect. */
-  async updatePreferences(patch: Partial<Preferences>): Promise<void> {
+  updatePreferences(patch: Partial<Preferences>): Promise<void> {
+    return this.enqueue(() => this.changePreferences(patch))
+  }
+
+  private async changePreferences(patch: Partial<Preferences>): Promise<void> {
     const next = normalizePreferences({ ...this.prefs, ...patch })
     const intervalChanged = next.detectionIntervalMs !== this.prefs.detectionIntervalMs
     const launchChanged = next.launchAtLogin !== this.prefs.launchAtLogin
     const shortcutsChanged
-      = next.focusOnShortcut !== this.prefs.focusOnShortcut
-        || next.focusOffShortcut !== this.prefs.focusOffShortcut
+     = next.focusOnShortcut !== this.prefs.focusOnShortcut
+      || next.focusOffShortcut !== this.prefs.focusOffShortcut
 
     this.prefs = next
-    await writeDocument(PREFERENCES_FILE, serializePreferences(next))
+    if (!await writeDocument(PREFERENCES_FILE, serializePreferences(next)))
+      throw new Error('Hush could not save preferences. Check access to Application Support.')
 
     if (launchChanged) await this.syncLaunchAtLogin()
     if (shortcutsChanged) await this.refreshShortcuts()
@@ -146,11 +179,14 @@ export class HushController {
   }
 
   /** Toggle Focus from the menu. Immediate, and takes ownership either way. */
-  async toggleFocus(enabled: boolean): Promise<void> {
-    const { action, state } = toggleManually(this.policy, enabled)
-    this.policy = state
-    await this.perform(action, true)
-    this.emit()
+  toggleFocus(enabled: boolean): Promise<void> {
+    return this.enqueue(async () => {
+      this.cancelTransition()
+      const { action } = toggleManually(this.policy, enabled)
+      this.policy = { ...this.policy, pending: null }
+      await this.perform(action, true)
+      this.emit()
+    })
   }
 
   /**
@@ -179,6 +215,21 @@ export class HushController {
     return this.screenRecording
   }
 
+  private async refreshFocusStatus(): Promise<void> {
+    const status = await focus.getStatus()
+    this.focusStatusReadable = status?.supported === true && status.isFocused !== null
+  }
+
+  /** Permission is requested from the explicit setup button, never at boot. */
+  requestFocusAuthorization(): Promise<void> {
+    return this.enqueue(async () => {
+      await focus.requestAuthorization()
+      await this.refreshFocusStatus()
+      await this.applyPolicy()
+      this.emit()
+    })
+  }
+
   /** Ask for Screen Recording, or send the user to System Settings. */
   async requestScreenRecording(): Promise<PermissionStatus> {
     this.screenRecording = this.screenRecording === 'undetermined'
@@ -191,16 +242,33 @@ export class HushController {
     return this.screenRecording
   }
 
-  private async onShareChange(state: ShareState): Promise<void> {
-    this.share = state
-    await this.applyPolicy()
-    this.emit()
+  private onShareChange(state: ShareState): Promise<void> {
+    return this.enqueue(async () => {
+      if (this.stopped) return
+      this.share = state
+      await this.applyPolicy()
+      this.emit()
+    })
   }
 
   private async applyPolicy(): Promise<void> {
+    this.cancelTransition()
+    if (this.stopped) return
     const { action, state } = evaluate(this.share.sharing, this.prefs, this.policy, Date.now())
-    this.policy = state
+    // An in-flight Shortcut has not changed Focus yet. Publish ownership only
+    // after it succeeds, and serialize all edits through the same queue.
+    this.policy = { ...state, engaged: this.policy.engaged }
     await this.perform(action, false)
+    const pending = this.policy.pending
+    if (pending && !this.stopped) {
+      const delay = pending.target ? this.prefs.activationDelayMs : this.prefs.deactivationDelayMs
+      this.transitionTimer = setTimeout(() => {
+        void this.enqueue(async () => {
+          await this.applyPolicy()
+          this.emit()
+        })
+      }, Math.max(0, pending.since + delay - Date.now()))
+    }
   }
 
   /**
@@ -214,10 +282,23 @@ export class HushController {
     if (action === 'none') return
 
     const enabling = action === 'enable'
-    const result = await focus.setEnabled(enabling, {
-      onShortcut: this.prefs.focusOnShortcut,
-      offShortcut: this.prefs.focusOffShortcut,
-    })
+    if (enabling && !manual) {
+      const current = await focus.getStatus()
+      // A Focus the user already enabled belongs to them. Do not replace it
+      // with Do Not Disturb or later clear it when sharing ends.
+      this.focusStatusReadable = current?.supported === true && current.isFocused !== null
+      if (!this.focusStatusReadable || current.isFocused === true) return
+    }
+    let result
+    try {
+      result = await focus.setEnabled(enabling, {
+        onShortcut: this.prefs.focusOnShortcut,
+        offShortcut: this.prefs.focusOffShortcut,
+      })
+    }
+    catch (error) {
+      result = { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
 
     if (!result.ok) {
       this.policy = { engaged: !enabling, pending: null }
@@ -231,6 +312,7 @@ export class HushController {
       return
     }
 
+    this.policy = { engaged: enabling, pending: null }
     const now = Date.now()
     this.stats = enabling
       ? recordActivation(this.stats, now, manual)
@@ -262,14 +344,14 @@ export class HushController {
    * matching state is left alone.
    */
   private async syncLaunchAtLogin(): Promise<void> {
-    try {
-      const isEnabled = await nativeAutoLaunch.isEnabled()
-      if (isEnabled === this.prefs.launchAtLogin) return
-      if (this.prefs.launchAtLogin) await nativeAutoLaunch.enable()
-      else await nativeAutoLaunch.disable()
-    }
-    catch {
-      // Login-item registration is not available outside a packaged bundle.
+    const requested = this.prefs.launchAtLogin
+    const current = await nativeAutoLaunch.isEnabled()
+    if (current === requested) return
+    const changed = requested ? await nativeAutoLaunch.enable() : await nativeAutoLaunch.disable()
+    if (!changed) {
+      this.prefs.launchAtLogin = await nativeAutoLaunch.isEnabled()
+      await writeDocument(PREFERENCES_FILE, serializePreferences(this.prefs))
+      throw new Error('macOS could not change Launch at Login. Check Login Items in System Settings.')
     }
   }
 

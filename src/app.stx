@@ -181,6 +181,17 @@ const statRows = [
       </ol>
     </section>
 
+    <section class="panel" id="focus-permission" hidden>
+      <div class="row">
+        <strong>Allow Focus status</strong>
+        <button type="button" id="grant-focus">Allow</button>
+      </div>
+      <p class="muted" style="margin-top: 6px; font-size: 12px;">
+        Hush checks your existing Focus before enabling Do Not Disturb. Automatic activation
+        waits until macOS lets Hush read this status, so it can leave your own Focus alone.
+      </p>
+    </section>
+
     <section class="panel" id="recording" hidden>
       <div class="row">
         <strong>Allow Screen Recording</strong>

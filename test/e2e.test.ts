@@ -14,8 +14,7 @@ import { Window } from 'very-happy-dom'
  * emitted the fallback source instead of a bundle. Every one of those produces
  * a green unit suite and an app that does nothing when you click it.
  *
- * Run `bun run build` first. The test skips with a clear message otherwise
- * rather than passing vacuously.
+ * Run `bun run build` first. Missing artifacts fail this suite.
  */
 
 const BUNDLE_PATH = join(import.meta.dir, '..', 'dist', 'Hush.app', 'Contents', 'Resources', 'index.html')
@@ -78,6 +77,7 @@ function boot(overrides: Record<string, (...args: any[]) => unknown> = {}): Harn
   responses.set('fs:readFile', (path: string) => ({ data: files.get(String(path)) ?? '' }))
   responses.set('fs:writeFile', (path: string, data: string) => { files.set(String(path), String(data)) })
   responses.set('fs:mkdir', () => undefined)
+  responses.set('focus:getStatus', () => ({ supported: true, authorization: 'authorized', isFocused: false }))
   responses.set('focus:listShortcuts', () => ['Hush Focus On', 'Hush Focus Off'])
   responses.set('focus:listShortcutsResult', () => ({ canList: true, shortcuts: ['Hush Focus On', 'Hush Focus Off'] }))
   responses.set('permissions:check', () => 'granted')
@@ -97,17 +97,16 @@ function boot(overrides: Record<string, (...args: any[]) => unknown> = {}): Harn
   // Run only the app's own bundle. The stx router and the Craft component
   // runtime are not what this test is about, and executing them adds noise
   // without adding coverage.
-  const bundle = html.match(/<script data-stx-scoped>([\s\S]*?)<\/script>/)?.[1]
-  if (!bundle) throw new Error('No client bundle in the built document — the build emitted no <script data-stx-scoped>')
-  // A bundle that still contains a bare `import` means stx fell back to the
-  // raw source instead of bundling; that is a SyntaxError in a real webview.
-  if (/^\s*import\s/m.test(bundle)) throw new Error('Client bundle contains an unresolved import — stx fell back to raw source')
-
-  // Execute with the DOM's globals bound as parameters — the bundle is an
-  // IIFE, so this is the same scope WebKit gives an inline <script>.
-  // eslint-disable-next-line no-new-func
-  const run = new Function('window', 'document', 'CustomEvent', 'Event', bundle)
-  run(window, document, window.CustomEvent, window.Event)
+  const bundles = [...html.matchAll(/<script\b([^>]*\bdata-stx-scoped\b[^>]*)>([\s\S]*?)<\/script>/g)]
+  if (!bundles.length) throw new Error('No client bundle in the built document')
+  for (const [, attrs, bundle] of bundles) {
+    if (attrs.includes('src=')) throw new Error('Native app contains an external client script')
+    if (/^\s*import\s/m.test(bundle)) throw new Error('Client bundle contains an unresolved import')
+    // Each app window has its own module registry, as it does in WebKit.
+    // eslint-disable-next-line no-new-func
+    const run = new Function('window', 'document', 'globalThis', 'CustomEvent', 'Event', 'setTimeout', 'clearTimeout', bundle)
+    run(window, document, window, window.CustomEvent, window.Event, window.setTimeout.bind(window), window.clearTimeout.bind(window))
+  }
 
   const el = (id: string) => document.getElementById(id)
 
@@ -127,7 +126,7 @@ function boot(overrides: Record<string, (...args: any[]) => unknown> = {}): Harn
       node.dispatchEvent(new window.Event(node.tagName === 'INPUT' ? 'change' : 'click', { bubbles: true }))
     },
     emitShare: state => window.dispatchEvent(new window.CustomEvent('craft:screenSharing:change', { detail: state })),
-    settle: async () => { for (let i = 0; i < 20; i++) await Promise.resolve() },
+    settle: async () => { for (let i = 0; i < 60; i++) await Promise.resolve() },
   }
 }
 
@@ -135,15 +134,9 @@ function findCall(calls: Harness['calls'], ns: string, method: string) {
   return calls.find(c => c.ns === ns && c.method === method)
 }
 
-const built = existsSync(BUNDLE_PATH)
-const suite = built ? describe : describe.skip
+if (!existsSync(BUNDLE_PATH)) throw new Error('Build the app before running test:e2e.')
 
-if (!built) {
-  // eslint-disable-next-line no-console
-  console.warn(`e2e: no built app at ${BUNDLE_PATH} — run \`bun run build\` first. Skipping.`)
-}
-
-suite('Hush end to end (built bundle in a DOM)', () => {
+describe('Hush end to end (built bundle in a DOM)', () => {
   let h: Harness
 
   beforeEach(async () => {
@@ -152,7 +145,7 @@ suite('Hush end to end (built bundle in a DOM)', () => {
   })
 
   afterEach(() => {
-    h.window.close?.()
+    h?.window.close?.()
   })
 
   it('every control the bundle binds to exists in the document', () => {
@@ -167,6 +160,8 @@ suite('Hush end to end (built bundle in a DOM)', () => {
       'recheck-shortcuts',
       'recording',
       'grant-recording',
+      'focus-permission',
+      'grant-focus',
       'toggle-focus',
       'pref-automatic',
       'pref-keep',
@@ -241,11 +236,8 @@ suite('Hush end to end (built bundle in a DOM)', () => {
     expect(h.text('sources')).toContain('zoom.us')
     expect(h.text('sources')).toContain('as_toolbar')
 
-    // A second sample past the delay is what settles the transition.
-    h.emitShare(SHARING)
-    await h.settle()
+    // Craft emits changes only. A steady share supplies no second event.
     await new Promise(r => setTimeout(r, 1100))
-    h.emitShare(SHARING)
     await h.settle()
 
     const call = findCall(h.calls, 'focus', 'setEnabled')
@@ -260,7 +252,6 @@ suite('Hush end to end (built bundle in a DOM)', () => {
     h.emitShare(SHARING)
     await h.settle()
     await new Promise(r => setTimeout(r, 1100))
-    h.emitShare(SHARING)
     await h.settle()
     expect(h.text('stat-sessions')).toBe('1')
   })
@@ -304,7 +295,6 @@ suite('Hush end to end (built bundle in a DOM)', () => {
     h.emitShare(SHARING)
     await h.settle()
     await new Promise(r => setTimeout(r, 1100))
-    h.emitShare(SHARING)
     await h.settle()
 
     expect(findCall(h.calls, 'focus', 'setEnabled')).toBeUndefined()
