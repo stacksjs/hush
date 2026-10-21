@@ -34,7 +34,8 @@ independent signals through Craft:
 The two window-level signals match native indicators an app shows *only
 while sharing*. Chrome window and screen sharing expose such a control.
 For Chrome and Dia tab-only capture, Craft reads browser-owned native accessibility
-sharing indicators after you grant Accessibility access. Browser queries run on
+sharing indicators after you grant Accessibility access. Discord and Slack use
+their native voice and huddle controls with the same grant. Queries run on
 a worker with bounded IPC timeouts so they cannot block the app’s UI. "Zoom is running" describes most of a working day, and acting
 on it would silence notifications permanently.
 
@@ -53,8 +54,8 @@ Hush checks for both at launch and tells you if either is missing, rather than
 failing at the moment a meeting starts. You can point it at different names in
 `~/Library/Application Support/Hush/preferences.json`.
 
-Chrome and Dia tab-only sharing also need **Accessibility** permission. Hush’s
-“Detect shared browser tabs” panel opens the native permission setup explicitly;
+Chrome and Dia tab-only sharing, Discord, and Slack also need **Accessibility**
+permission. Hush’s “Detect sharing controls” panel opens the native permission setup explicitly;
 launching the app never requests this access.
 
 ## Requirements
@@ -124,7 +125,15 @@ for a Dia sharing cycle. `--expect-app` requires a source from that exact native
 application; `--expect-source` also checks its native indicator. Each named case
 writes a separate `dist/e2e/<case>.json` report. Live checks require an idle
 starting state and a real start/stop cycle; app launch alone never counts as a
-compatibility pass.
+compatibility pass. Reports include the tested executable’s SHA-256 and the
+configured Craft revision; failed runs replace any earlier success for that case.
+
+Run `bun run test:compatibility` after collecting `zoom-window`, `teams-window`,
+`dia-local-tab`, `discord-window`, `slack-window`, and `google-meet-dia` cases.
+It requires all six real start/stop checks, the expected native app source,
+Focus preservation, and the current executable hash and Craft revision. Missing,
+failed, or stale reports fail the gate. Live client checks require local signed-in
+clients and are separate from the native bridge checks that run in CI.
 
 ## Architecture
 

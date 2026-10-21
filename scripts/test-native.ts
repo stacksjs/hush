@@ -49,13 +49,18 @@ const output = testCase
   ? join(root, 'dist/e2e', `${testCase}.json`)
   : join(root, observeSharing ? exerciseFocus ? 'dist/live-focus-check.json' : 'dist/live-native-check.json' : launchServices ? 'dist/native-app-check.json' : 'dist/native-check.json')
 if (testCase) mkdirSync(join(root, 'dist/e2e'), { recursive: true })
-const runMetadata = { testCase: testCase ?? null, expectedApp: expectedApp ?? null, craftRevision: config.craftRevision, checkedAt: new Date().toISOString() }
+const runMetadata = { testCase: testCase ?? null, expectedApp: expectedApp ?? null, configuredCraftRevision: config.craftRevision, executableSha256: new Bun.CryptoHasher('sha256').update(readFileSync(executable)).digest('hex'), checkedAt: new Date().toISOString() }
 writeFileSync(output, `${JSON.stringify({ ...runMetadata, status: 'running' }, null, 2)}\n`)
 
 // Run the compiled application unchanged, followed by assertions. No bridge
 // mocks, permissions changes, or Focus changes are involved in this check.
 const assertions = `<script>
 (async function() {
+  const nativeSharingEvents = [];
+  window.addEventListener('craft:screenSharing:change', event => {
+    nativeSharingEvents.push({ at: Date.now(), state: event.detail });
+    if (nativeSharingEvents.length > 20) nativeSharingEvents.shift();
+  });
   const deadline = Date.now() + 15000;
   while (document.getElementById('app').dataset.ready !== 'true') {
     if (Date.now() > deadline) throw new Error('Controller did not start: ' + document.getElementById('status').textContent);
@@ -98,7 +103,10 @@ const assertions = `<script>
   async function waitForSharing(expected) {
     const deadline = Date.now() + 120000;
     while (document.getElementById('app').dataset.sharing !== String(expected)) {
-      if (Date.now() > deadline) throw new Error('The native sharing transition did not reach the shipped client');
+      if (Date.now() > deadline) {
+        const latest = await craft.screenSharing.getState();
+        throw new Error('The native sharing transition did not reach the shipped client: ' + JSON.stringify({ expected, latest, status: document.getElementById('status').textContent, sharing: document.getElementById('app').dataset.sharing }));
+      }
       await new Promise(r => setTimeout(r, 250));
     }
   }
@@ -128,7 +136,7 @@ const assertions = `<script>
   ${exerciseFocus ? `
   const releaseDeadline = Date.now() + 30000;
   while (document.getElementById('app').dataset.engaged !== 'false') {
-    if (Date.now() > releaseDeadline) throw new Error('Hush did not release Focus');
+    if (Date.now() > releaseDeadline) throw new Error('Hush did not release Focus: ' + JSON.stringify({ latest: await craft.screenSharing.getState(), events: nativeSharingEvents, status: document.getElementById('status').textContent }));
     await new Promise(r => setTimeout(r, 250));
   }
   ` : ''}
@@ -136,7 +144,7 @@ const assertions = `<script>
   liveSharingVerified = true;
   ` : ''}
   if (typeof shortcuts.canList !== 'boolean') throw new Error('Invalid native shortcut response');
-  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
+  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, initialSources: state.sources, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, nativeSharingEvents, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
   document.getElementById('quit').click();
 })().catch(async function(error) {
   try {
@@ -192,7 +200,10 @@ try {
   report.nativeCheckMs = Math.round(performance.now() - started)
   report.launchServices = launchServices
   report.automaticFocusVerified = exerciseFocus
-  report.tabSharingVerified = expectTabSharing && report.liveSharingVerified === true
+  report.tabSharingVerified = report.liveSharingVerified === true && report.liveSharingSources.some((source: { app: string, window: string }) =>
+    (source.app === 'Dia' && source.window === 'Browser tab sharing')
+    || (source.app === 'Google Chrome' && source.window.endsWith(' - Tab content shared - Google Chrome')))
+  report.focusPreservationVerified = observeSharing && !exerciseFocus && report.liveSharingVerified === true
   Object.assign(report, runMetadata, { status: 'passed' })
   writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`)
   // eslint-disable-next-line no-console
