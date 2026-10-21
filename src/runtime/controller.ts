@@ -35,7 +35,7 @@ export interface HushState {
    * fire, and Hush can only see system screen sharing.
    */
   screenRecording: PermissionStatus
-  /** Optional Accessibility access for native browser tab-capture indicators. */
+  /** Optional Accessibility access for native browser and conferencing sharing controls. */
   accessibility: PermissionStatus
 }
 
