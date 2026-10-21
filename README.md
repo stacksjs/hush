@@ -33,8 +33,8 @@ independent signals through Craft:
 
 The two window-level signals match native indicators an app shows *only
 while sharing*. Chrome window and screen sharing expose such a control.
-For Chrome tab-only capture, Craft reads the browser-owned native accessibility
-sharing indicator after you grant Accessibility access. Browser queries run on
+For Chrome and Dia tab-only capture, Craft reads browser-owned native accessibility
+sharing indicators after you grant Accessibility access. Browser queries run on
 a worker with bounded IPC timeouts so they cannot block the app’s UI. "Zoom is running" describes most of a working day, and acting
 on it would silence notifications permanently.
 
@@ -53,7 +53,7 @@ Hush checks for both at launch and tells you if either is missing, rather than
 failing at the moment a meeting starts. You can point it at different names in
 `~/Library/Application Support/Hush/preferences.json`.
 
-Chrome tab-only sharing also needs **Accessibility** permission. Hush’s
+Chrome and Dia tab-only sharing also need **Accessibility** permission. Hush’s
 “Detect shared browser tabs” panel opens the native permission setup explicitly;
 launching the app never requests this access.
 
@@ -119,6 +119,12 @@ macOS. Start and stop sharing while the check waits; these explicit live checks
 require the corresponding permissions and installed shortcuts.
 Add `--expect-tab-sharing` to require Chrome's actual native tab-capture
 indicator; a window-sharing signal cannot satisfy that check.
+Use `--expect-app=Dia --expect-source='Browser tab sharing' --case=dia-meet-tab`
+for a Dia sharing cycle. `--expect-app` requires a source from that exact native
+application; `--expect-source` also checks its native indicator. Each named case
+writes a separate `dist/e2e/<case>.json` report. Live checks require an idle
+starting state and a real start/stop cycle; app launch alone never counts as a
+compatibility pass.
 
 ## Architecture
 

@@ -209,7 +209,7 @@ const statRows = [
         <button type="button" id="grant-accessibility">Open Settings</button>
       </div>
       <p class="muted" style="margin-top: 6px; font-size: 12px;">
-        Allow Accessibility so {{ appName }} can read Chrome’s native tab-sharing indicator.
+        Allow Accessibility so {{ appName }} can read your browser’s native tab-sharing indicator.
         Window and screen sharing continue to use Screen Recording permission.
       </p>
     </section>

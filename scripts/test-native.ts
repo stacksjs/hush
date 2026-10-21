@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /** Exercise the shipped client inside real WebKit and the real Craft bridge. */
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { config } from '../craft.config'
@@ -36,8 +36,21 @@ const nativeFile = join(work, 'native-file.txt')
 const setupPermissions = process.argv.includes('--setup-permissions')
 const exerciseFocus = process.argv.includes('--exercise-focus')
 const expectTabSharing = process.argv.includes('--expect-tab-sharing')
-const observeSharing = exerciseFocus || expectTabSharing || process.argv.includes('--observe-sharing')
+const expectedApp = process.argv.find(arg => arg.startsWith('--expect-app='))?.slice(13)
+const expectedSource = process.argv.find(arg => arg.startsWith('--expect-source='))?.slice(16)
+const testCase = process.argv.find(arg => arg.startsWith('--case='))?.slice(7)
+if (testCase && !/^[a-z0-9][a-z0-9-]{0,63}$/.test(testCase)) throw new Error('Use a lowercase, hyphenated test case name.')
+const observeSharing = exerciseFocus || expectTabSharing || Boolean(expectedApp) || process.argv.includes('--observe-sharing')
 const launchServices = setupPermissions || observeSharing || process.argv.includes('--launch-services')
+const timeoutArgument = process.argv.find(arg => arg.startsWith('--timeout-ms='))?.slice(13)
+const budget = timeoutArgument ? Number(timeoutArgument) : observeSharing ? 250_000 : setupPermissions ? 120_000 : 25_000
+if (!Number.isSafeInteger(budget) || budget < 1000 || budget > 600_000) throw new Error('Native timeout must be 1000–600000 milliseconds.')
+const output = testCase
+  ? join(root, 'dist/e2e', `${testCase}.json`)
+  : join(root, observeSharing ? exerciseFocus ? 'dist/live-focus-check.json' : 'dist/live-native-check.json' : launchServices ? 'dist/native-app-check.json' : 'dist/native-check.json')
+if (testCase) mkdirSync(join(root, 'dist/e2e'), { recursive: true })
+const runMetadata = { testCase: testCase ?? null, expectedApp: expectedApp ?? null, craftRevision: config.craftRevision, checkedAt: new Date().toISOString() }
+writeFileSync(output, `${JSON.stringify({ ...runMetadata, status: 'running' }, null, 2)}\n`)
 
 // Run the compiled application unchanged, followed by assertions. No bridge
 // mocks, permissions changes, or Focus changes are involved in this check.
@@ -79,6 +92,7 @@ const assertions = `<script>
   let liveSharingSources = [];
   await stage('live sharing');
   ${observeSharing ? `
+  if (state.sharing) throw new Error('The live test must start idle, before sharing begins: ' + JSON.stringify(state));
   if (screenRecording !== 'granted' || focusStatus.authorization !== 'authorized' || focusStatus.isFocused !== ${!exerciseFocus})
     throw new Error('Live check requires granted permissions and ${exerciseFocus ? 'no active' : 'an existing user'} Focus');
   async function waitForSharing(expected) {
@@ -88,6 +102,7 @@ const assertions = `<script>
       await new Promise(r => setTimeout(r, 250));
     }
   }
+  await stage('waiting for sharing to start');
   await waitForSharing(true);
   ${exerciseFocus ? `
   const activationDeadline = Date.now() + 30000;
@@ -99,11 +114,16 @@ const assertions = `<script>
   ` : `if (document.getElementById('app').dataset.engaged !== 'false') throw new Error('Hush replaced the existing Focus');`}
   const liveState = await craft.screenSharing.getState();
   liveSharingSources = liveState.sources;
+  ${expectedApp ? `
+  if (!liveState.sources.some(source => source.app === ${JSON.stringify(expectedApp)}${expectedSource ? ` && source.window.toLowerCase().includes(${JSON.stringify(expectedSource.toLowerCase())})` : ''}))
+    throw new Error('The expected app’s native sharing source was absent: ' + JSON.stringify(liveState));
+  ` : ''}
   ${expectTabSharing ? `
   if (!liveState.sources.some(source => source.app === 'Google Chrome' && source.window.endsWith(' - Tab content shared - Google Chrome')))
     throw new Error('Expected a real native Chrome tab-capture indicator: ' + JSON.stringify(liveState));
   ` : ''}
   await craft.fs.writeFile(${JSON.stringify(join(root, 'dist/live-sharing-start.json'))}, JSON.stringify(liveState));
+  await stage('waiting for sharing to stop');
   await waitForSharing(false);
   ${exerciseFocus ? `
   const releaseDeadline = Date.now() + 30000;
@@ -134,11 +154,37 @@ try {
     ? ['open', '-W', '-n', bundle, '--args', '--html-file', input]
     : [executable, '--html-file', input]
   const child = Bun.spawn(args, { stdout: 'pipe', stderr: 'pipe' })
-  const timeout = setTimeout(() => child.kill(), observeSharing ? 250_000 : setupPermissions ? 120_000 : 25_000)
+  // LaunchServices gives us an `open -W` waiter, not the app process. Bound
+  // cleanup to this test's unique HTML argument so timeouts cannot leak an
+  // app or terminate another Hush instance.
+  function stopOwnedApp(signal: NodeJS.Signals): void {
+    const snapshot = Bun.spawnSync(['ps', '-axo', 'pid=,args=']).stdout.toString()
+    for (const line of snapshot.split('\n')) {
+      const match = line.match(/^\s*(\d+)\s+(.+)$/)
+      if (match?.[2]?.startsWith(`${executable} `) && match[2].includes(`--html-file ${input}`)) {
+        try { process.kill(Number(match[1]), signal) }
+        catch { /* The test app may already have exited. */ }
+      }
+    }
+  }
+  let timedOut = false
+  const timeout = setTimeout(() => {
+    timedOut = true
+    stopOwnedApp('SIGTERM')
+    child.kill()
+  }, budget)
+  const forceTimeout = setTimeout(() => stopOwnedApp('SIGKILL'), budget + 2000)
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
-  ]).finally(() => clearTimeout(timeout))
-  if (exitCode !== 0) throw new Error(`Native app exited with ${exitCode}: ${stdout}${stderr}`)
+  ]).finally(() => {
+    clearTimeout(timeout)
+    clearTimeout(forceTimeout)
+    stopOwnedApp(timedOut ? 'SIGKILL' : 'SIGTERM')
+  })
+  if (timedOut || exitCode !== 0) {
+    const diagnostic = existsSync(reportPath) ? readFileSync(reportPath, 'utf8') : 'No native result was written.'
+    throw new Error(`Native app ${timedOut ? 'timed out' : `exited with ${exitCode}`}: ${diagnostic}\n${stdout}${stderr}`)
+  }
   const report = JSON.parse(readFileSync(reportPath, 'utf8'))
   if (report.error || report.ready !== true) throw new Error(`${report.error ?? 'Native app was not ready'}\n${stderr}`)
   report.minimumMacOS = minimum
@@ -147,9 +193,14 @@ try {
   report.launchServices = launchServices
   report.automaticFocusVerified = exerciseFocus
   report.tabSharingVerified = expectTabSharing && report.liveSharingVerified === true
-  writeFileSync(join(root, observeSharing ? exerciseFocus ? 'dist/live-focus-check.json' : 'dist/live-native-check.json' : launchServices ? 'dist/native-app-check.json' : 'dist/native-check.json'), `${JSON.stringify(report, null, 2)}\n`)
+  Object.assign(report, runMetadata, { status: 'passed' })
+  writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`)
   // eslint-disable-next-line no-console
   console.log('Native WebKit startup, filesystem, detection, shortcut enumeration and clean shutdown verified.')
+}
+catch (error) {
+  writeFileSync(output, `${JSON.stringify({ ...runMetadata, status: 'failed', error: error instanceof Error ? error.message : String(error) }, null, 2)}\n`)
+  throw error
 }
 finally {
   rmSync(work, { recursive: true, force: true })
