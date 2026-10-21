@@ -35,7 +35,8 @@ const reportPath = join(work, 'result.json')
 const nativeFile = join(work, 'native-file.txt')
 const setupPermissions = process.argv.includes('--setup-permissions')
 const exerciseFocus = process.argv.includes('--exercise-focus')
-const observeSharing = exerciseFocus || process.argv.includes('--observe-sharing')
+const expectTabSharing = process.argv.includes('--expect-tab-sharing')
+const observeSharing = exerciseFocus || expectTabSharing || process.argv.includes('--observe-sharing')
 const launchServices = setupPermissions || observeSharing || process.argv.includes('--launch-services')
 
 // Run the compiled application unchanged, followed by assertions. No bridge
@@ -75,6 +76,7 @@ const assertions = `<script>
   const accessibility = await craft.permissions.check('accessibility');
   if (screenRecording !== 'granted' && screenRecording !== 'denied') throw new Error('Screen Recording must use the real macOS permission API');
   let liveSharingVerified = false;
+  let liveSharingSources = [];
   await stage('live sharing');
   ${observeSharing ? `
   if (screenRecording !== 'granted' || focusStatus.authorization !== 'authorized' || focusStatus.isFocused !== ${!exerciseFocus})
@@ -95,7 +97,13 @@ const assertions = `<script>
   }
   if ((await craft.focus.getStatus()).isFocused !== true) throw new Error('Automatic activation did not reach macOS');
   ` : `if (document.getElementById('app').dataset.engaged !== 'false') throw new Error('Hush replaced the existing Focus');`}
-  await craft.fs.writeFile(${JSON.stringify(join(root, 'dist/live-sharing-start.json'))}, JSON.stringify(await craft.screenSharing.getState()));
+  const liveState = await craft.screenSharing.getState();
+  liveSharingSources = liveState.sources;
+  ${expectTabSharing ? `
+  if (!liveState.sources.some(source => source.app === 'Google Chrome' && source.window.endsWith(' - Tab content shared - Google Chrome')))
+    throw new Error('Expected a real native Chrome tab-capture indicator: ' + JSON.stringify(liveState));
+  ` : ''}
+  await craft.fs.writeFile(${JSON.stringify(join(root, 'dist/live-sharing-start.json'))}, JSON.stringify(liveState));
   await waitForSharing(false);
   ${exerciseFocus ? `
   const releaseDeadline = Date.now() + 30000;
@@ -108,7 +116,7 @@ const assertions = `<script>
   liveSharingVerified = true;
   ` : ''}
   if (typeof shortcuts.canList !== 'boolean') throw new Error('Invalid native shortcut response');
-  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
+  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
   document.getElementById('quit').click();
 })().catch(async function(error) {
   try {
@@ -138,6 +146,7 @@ try {
   report.nativeCheckMs = Math.round(performance.now() - started)
   report.launchServices = launchServices
   report.automaticFocusVerified = exerciseFocus
+  report.tabSharingVerified = expectTabSharing && report.liveSharingVerified === true
   writeFileSync(join(root, observeSharing ? exerciseFocus ? 'dist/live-focus-check.json' : 'dist/live-native-check.json' : launchServices ? 'dist/native-app-check.json' : 'dist/native-check.json'), `${JSON.stringify(report, null, 2)}\n`)
   // eslint-disable-next-line no-console
   console.log('Native WebKit startup, filesystem, detection, shortcut enumeration and clean shutdown verified.')

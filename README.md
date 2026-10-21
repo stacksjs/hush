@@ -117,6 +117,8 @@ while preserving an existing Focus, run
 `--exercise-focus` additionally verifies automatic activation and release against
 macOS. Start and stop sharing while the check waits; these explicit live checks
 require the corresponding permissions and installed shortcuts.
+Add `--expect-tab-sharing` to require Chrome's actual native tab-capture
+indicator; a window-sharing signal cannot satisfy that check.
 
 ## Architecture
 
