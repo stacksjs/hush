@@ -225,7 +225,7 @@ export class HushController {
 
   private async refreshFocusStatus(): Promise<void> {
     const status = await focus.getStatus()
-    this.focusStatusReadable = status?.supported === true && status.isFocused !== null
+    this.focusStatusReadable = status?.supported === true && status.authorization === 'authorized' && status.isFocused !== null
   }
 
   /** Permission is requested from the explicit setup button, never at boot. */
@@ -295,7 +295,7 @@ export class HushController {
       const current = await focus.getStatus()
       // A Focus the user already enabled belongs to them. Do not replace it
       // with Do Not Disturb or later clear it when sharing ends.
-      this.focusStatusReadable = current?.supported === true && current.isFocused !== null
+      this.focusStatusReadable = current?.supported === true && current.authorization === 'authorized' && current.isFocused !== null
       if (!this.focusStatusReadable || current.isFocused === true) return
     }
     let result

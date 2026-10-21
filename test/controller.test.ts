@@ -229,7 +229,8 @@ describe('HushController', () => {
   })
 
   it('waits for readable Focus status instead of overriding an unknown Focus', async () => {
-    bridge.whenCalled('focus', 'getStatus', () => ({ supported: true, authorization: 'notDetermined', isFocused: null }))
+    // macOS can return false even before permission has been granted.
+    bridge.whenCalled('focus', 'getStatus', () => ({ supported: true, authorization: 'notDetermined', isFocused: false }))
     const c = new HushController()
     await c.start()
     await c.updatePreferences({ activationDelayMs: 0 })
