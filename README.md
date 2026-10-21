@@ -31,8 +31,10 @@ independent signals through Craft:
 | Conference sharing | a conferencing app is showing its live sharing control |
 | Screen recording | a recorder is capturing the screen |
 
-The two window-level signals match the floating control an app shows *only
-while sharing*. "Zoom is running" describes most of a working day, and acting
+The two window-level signals match native indicators an app shows *only
+while sharing*. Chrome window and screen sharing expose such a control.
+Chrome tab-only capture currently exposes its marker only through accessibility
+text, so the CoreGraphics detector cannot detect that mode. "Zoom is running" describes most of a working day, and acting
 on it would silence notifications permanently.
 
 ## Setup
@@ -53,24 +55,63 @@ failing at the moment a meeting starts. You can point it at different names in
 ## Requirements
 
 - macOS 13.0 or later
-- Bun 1.2 or later *(for development)*
+- Bun 1.3 or later, Pantry, and the macOS SDK from Command Line Tools *(for development)*
 
 ## Development
 
+Hush is a Buddy-managed native Stacks app. Its UI runs in macOS WebKit inside
+Craft; the bundle needs neither Bun nor a server at runtime.
+
 ```bash
 bun install
-bun run dev        # build and launch, with Craft's output in your terminal
-bun run test
-bun run build      # dist/Hush.app
-bun run package    # dist/Hush.app + dist/Hush-<version>.dmg
+bun run dev              # provisions the pinned runtime, then opens the native app
+bun run build            # dist/Hush.app
+bun run package          # dist/Hush.app + DMG
+./buddy upgrade          # update the native app's declared packages
+bun run verify           # build, types, unit tests, compiled client, real native bridge
 ```
 
-The build resolves the Craft runtime from pantry, or from `CRAFT_BIN` when you
-are working against a local Craft build:
+Bun lifecycle hooks provision the runtime before dev/build/package. After setup,
+`./buddy dev`, `./buddy build`, and `./buddy package` use the same cached binary.
 
-```bash
-CRAFT_BIN=~/Code/Tools/craft/packages/zig/zig-out/bin/craft bun run package
-```
+For Focus status, the signed app needs Apple's Communication Notifications
+capability and a matching Developer ID provisioning profile. Set
+`APPLE_SIGNING_IDENTITY` (the certificate SHA-1) and
+`APPLE_PROVISIONING_PROFILE` (the profile path) in an ignored `.env.local`.
+The shared stx packager embeds the profile and signs the assembled bundle.
+Without signing configuration, development builds are ad-hoc signed and wait
+for readable Focus status before automatic activation.
+
+Release CI requires `APPLE_APPLICATION_CERTIFICATE`,
+`APPLE_CERTIFICATE_PASSWORD`, and `APPLE_PROVISIONING_PROFILE_BASE64`.
+It verifies the signed executable before publishing; missing signing setup
+fails the release. Native checks never infer a live Focus transition from
+successful startup or shortcut enumeration.
+
+For platform development, point `CRAFT_BIN` at a source build in
+`~/Code/Tools/craft`. Develop Buddy in `~/Code/stacks` and stx/desktop in
+`~/Code/Libraries/stx` using Bun's package linking; fix those source repositories
+and consume their releases. Hush contains application policy and UI.
+
+`craft.config.ts` selects a live status-item popover with `trayPopover: true`.
+Craft's `menubarOnly` mode creates no page and cannot run this controller.
+The pinned runtime uses `ReleaseSmall` and disables Craft's separate CLI
+JavaScript interpreter. The app's JavaScript continues to run on system WebKit.
+
+Native verification exercises the shipped client inside real WebKit: startup,
+filesystem round trips, screen-sharing state, shortcut enumeration, failed
+Shortcut execution without blocking the UI, and clean shutdown.
+`test:native:app` also launches through LaunchServices to exercise macOS’s app
+identity and permission context. Both checks run in CI. The compiled-client suite separately verifies transitions and controls
+against a deterministic bridge. Missing build artifacts fail the E2E suite.
+A live conferencing/Focus check also requires Screen Recording permission and
+the two user-created shortcuts described above; the native report records
+whether those shortcuts are installed. To verify a real window-sharing session
+while preserving an existing Focus, run
+`bun scripts/test-native.ts --observe-sharing`. With no Focus active,
+`--exercise-focus` additionally verifies automatic activation and release against
+macOS. Start and stop sharing while the check waits; these explicit live checks
+require the corresponding permissions and installed shortcuts.
 
 ## Architecture
 
@@ -79,7 +120,7 @@ src/core/       platform-free: the decision engine, preferences, statistics
 src/runtime/    the controller wiring detection → policy → Focus, and storage
 src/client/     binds the controller to the popover
 src/app.stx     the UI
-scripts/        build and dev drivers
+scripts/        pinned runtime setup and native verification
 ```
 
 `src/core` has no imports outside itself, which is why the policy is covered
@@ -100,8 +141,8 @@ workflow, which produces two artifacts from the same build:
 - **Mac App Store** — sandboxed, distribution signed, wrapped in a `.pkg` by
   `scripts/package-appstore.sh` and uploaded to App Store Connect.
 
-Both steps are conditional on their secrets. Without them the release still
-completes as an unsigned direct download and says so, rather than failing.
+Developer ID signing and provisioning are required for a release. Notarization
+and the App Store upload use their additional secrets when configured.
 
 ### Secrets
 
@@ -109,6 +150,7 @@ completes as an unsigned direct download and says so, rather than failing.
 | --- | --- |
 | `APPLE_APPLICATION_CERTIFICATE` | Developer ID signing (direct download) |
 | `APPLE_CERTIFICATE_PASSWORD` | password for the `.p12` files |
+| `APPLE_PROVISIONING_PROFILE_BASE64` | Developer ID profile with Communication Notifications |
 | `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID` | notarization |
 | `APPLE_DISTRIBUTION_CERTIFICATE` | Apple Distribution signing (store) |
 | `APPLE_INSTALLER_CERTIFICATE` | 3rd Party Mac Developer Installer |

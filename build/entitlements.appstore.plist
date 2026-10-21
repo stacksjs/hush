@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Required by the public Focus-status API. -->
+    <key>com.apple.developer.usernotifications.communication</key>
+    <true/>
     <!--
       Mac App Store build. The sandbox is mandatory here, and it is what makes
       this document different from build/entitlements.plist rather than a copy

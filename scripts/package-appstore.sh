@@ -13,8 +13,8 @@
 #   APPLE_SIGNING_IDENTITY            "Apple Distribution: …" or
 #                                     "3rd Party Mac Developer Application: …"
 #   APPLE_INSTALLER_SIGNING_IDENTITY  "3rd Party Mac Developer Installer: …"
-#   APPLE_PROVISIONING_PROFILE_PATH   .provisionprofile to embed (optional
-#                                     locally, required by App Store Connect)
+#   APPLE_PROVISIONING_PROFILE        matching App Store .provisionprofile
+#   HUSH_DISTRIBUTION                 app-store (selects shared native signing)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,7 +22,6 @@ cd "$ROOT"
 
 HUSH_ROOT="$ROOT" export HUSH_ROOT
 APP_NAME="$(bun --print "(await import(process.env.HUSH_ROOT + \"/craft.config.ts\")).config.name")"
-ENTITLEMENTS="$(bun --print "(await import(process.env.HUSH_ROOT + \"/craft.config.ts\")).config.entitlements.appStore")"
 VERSION="$(bun --print "JSON.parse(await Bun.file(process.env.HUSH_ROOT + \"/package.json\").text()).version")"
 
 APP="dist/$APP_NAME.app"
@@ -51,37 +50,31 @@ if ! file -b "$EXECUTABLE" | grep -q 'Mach-O'; then
   exit 1
 fi
 
-# The profile has to be inside the bundle before it is signed — the signature
-# seals it, and adding it afterwards invalidates the signature.
-if [[ -n "${APPLE_PROVISIONING_PROFILE_PATH:-}" ]]; then
-  cp "$APPLE_PROVISIONING_PROFILE_PATH" "$APP/Contents/embedded.provisionprofile"
-  echo "Embedded provisioning profile."
-else
-  echo "warning: no APPLE_PROVISIONING_PROFILE_PATH — App Store Connect will reject this package." >&2
+# The shared native packager embeds the matching profile and applies the
+# distribution entitlements during assembly, before sealing the bundle.
+if [[ "${HUSH_DISTRIBUTION:-}" != "app-store" || ! -f "$APP/Contents/embedded.provisionprofile" ]]; then
+  echo "Build with HUSH_DISTRIBUTION=app-store and APPLE_PROVISIONING_PROFILE first." >&2
+  exit 1
 fi
-
-echo "Signing $APP for distribution…"
-codesign --force --timestamp --options runtime \
---entitlements "$ENTITLEMENTS" \
---sign "$APPLE_SIGNING_IDENTITY" \
-"$APP"
-
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 # Confirm the sandbox actually landed. A store build without it is refused, and
 # the failure message from App Store Connect does not say which entitlement is
 # missing.
 if ! codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -extract com.apple.security.app-sandbox raw - >/dev/null 2>&1; then
-  echo "The signed bundle has no app-sandbox entitlement. Check $ENTITLEMENTS." >&2
+  echo "The signed bundle has no app-sandbox entitlement. Build with HUSH_DISTRIBUTION=app-store." >&2
   exit 1
 fi
 
 echo "Building $PKG…"
-rm -f "$PKG"
+if [[ -e "$PKG" ]]; then
+  echo "$PKG already exists; move it before producing another signed installer." >&2
+  exit 1
+fi
 productbuild \
---component "$APP" /Applications \
---sign "$APPLE_INSTALLER_SIGNING_IDENTITY" \
-"$PKG"
+  --component "$APP" /Applications \
+  --sign "$APPLE_INSTALLER_SIGNING_IDENTITY" \
+  "$PKG"
 
 pkgutil --check-signature "$PKG"
 echo "✔ $PKG"

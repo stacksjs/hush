@@ -2,7 +2,7 @@
 
 ## About
 
-Hush is a macOS menubar app that detects screen sharing and turns Focus on while you present. It is a Stacks app: stx compiles the UI, Craft is the native runtime, Bun runs the build. There is no Xcode, Swift or third-party packager anywhere in the pipeline.
+Hush is a macOS menubar app that detects screen sharing and turns Focus on while you present. It is a Stacks app: stx compiles the UI, Craft is the native runtime, Bun runs the build. Application source is STX and TypeScript, with no Xcode project, Swift, Kotlin, or third-party packager. Runtime builds use Zig and the macOS SDK.
 
 Layout:
 
@@ -10,7 +10,7 @@ Layout:
 - `src/runtime/` — the controller wiring detection → policy → Focus, plus storage through Craft's file bridge.
 - `src/client/` — binds the controller to the popover DOM.
 - `src/app.stx` — the UI. `<script server>` for build-time data, `<script client>` for the entry import.
-- `scripts/` — the build and dev drivers.
+- `scripts/` — pinned Craft provisioning and real native verification. Buddy owns build/dev/package.
 
 Two constraints shape the whole app, and neither is negotiable:
 
@@ -53,5 +53,5 @@ Native capabilities live in Craft (`~/Code/Tools/craft`) and are surfaced throug
 ## Bundle shape
 
 - Craft is `CFBundleExecutable` and reads `Contents/Resources/craft.json`. There is **no launcher script** — the Mac App Store requires a Mach-O executable, and CI asserts it
-- The Craft runtime is built from source at the tag in `craft.config.ts` (`craftVersion`), because Actions is disabled for the home-lang org and the published craft is stuck at 0.0.37. Bumping Craft means bumping that one field
+- The Craft runtime is built from source at the immutable commit in `craft.config.ts` (`craftRevision`, with `craftVersion` checked), with the upstream first-party dependency SHAs and Zig lock respected. Bumping Craft means bumping that one field
 - The store build is sandboxed, which changes behaviour rather than just packaging: Focus is set through `shortcuts://run-shortcut` instead of the CLI, and shortcuts cannot be enumerated, so `shortcutsReady` can be `'unknown'`

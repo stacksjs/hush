@@ -44,30 +44,23 @@ jobs:
         run: bun run typecheck
 
       - name: Test
-        run: bun run test
+        run: bun run test:unit
 
       - name: Read version
         id: version
         run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Build app and DMG
-        run: bun run package
-
-      # Signing stays optional so a release still completes before the
-      # certificates are in place — but an unsigned build is announced loudly
-      # rather than shipped quietly, because Gatekeeper will quarantine it.
-      - name: Check for signing credentials
+      - name: Require native signing credentials
         id: signing
         env:
           APPLE_APPLICATION_CERTIFICATE: ${{ secrets.APPLE_APPLICATION_CERTIFICATE }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
         run: |
-          if [ -n "${APPLE_APPLICATION_CERTIFICATE:-}" ]; then
-            echo "sign=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "sign=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::No Apple signing certificate configured — publishing an unsigned build that Gatekeeper will quarantine."
-          fi
+          set -euo pipefail
+          test -n "${APPLE_APPLICATION_CERTIFICATE:-}" || { echo "::error::Hush releases require a Developer ID signing certificate."; exit 1; }
+          test -n "${APPLE_PROVISIONING_PROFILE_BASE64:-}" || { echo "::error::Hush releases require its Focus-capable Developer ID provisioning profile."; exit 1; }
+          echo "sign=true" >> "$GITHUB_OUTPUT"
           if [ -n "${APPLE_ID:-}" ]; then
             echo "notarize=true" >> "$GITHUB_OUTPUT"
           else
@@ -75,7 +68,6 @@ jobs:
           fi
 
       - name: Import Apple signing certificates
-        if: steps.signing.outputs.sign == 'true'
         id: apple
         uses: home-lang/pantry/packages/action@main
         with:
@@ -84,26 +76,22 @@ jobs:
           apple-signing-application-certificate: ${{ secrets.APPLE_APPLICATION_CERTIFICATE }}
           apple-signing-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
-      - name: Sign the app bundle
-        if: steps.signing.outputs.sign == 'true'
+      - name: Configure the native provisioning profile
         env:
+          PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
           IDENTITY: ${{ steps.apple.outputs.apple-signing-identity }}
         run: |
           set -euo pipefail
-          # One Mach-O in the bundle — Craft is CFBundleExecutable itself — so
-          # a single signature covers everything.
-          codesign --force --options runtime --timestamp \
-            --entitlements build/entitlements.plist \
-            --sign "$IDENTITY" dist/Hush.app
-          codesign --verify --deep --strict --verbose=2 dist/Hush.app
+          profile_file="$RUNNER_TEMP/Hush.provisionprofile"
+          printf '%s' "$PROFILE_BASE64" | base64 --decode > "$profile_file"
+          echo "APPLE_SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "APPLE_PROVISIONING_PROFILE=$profile_file" >> "$GITHUB_ENV"
 
-      - name: Rebuild the DMG around the signed app
-        if: steps.signing.outputs.sign == 'true'
-        run: |
-          set -euo pipefail
-          rm -f dist/*.dmg
-          hdiutil create -volname Hush -srcfolder dist/Hush.app -ov -format UDZO \
-            "dist/Hush-${{ steps.version.outputs.version }}.dmg"
+      - name: Build signed app and DMG
+        run: bun run package
+
+      - name: Verify compiled client and native bridge
+        run: bun run test:e2e && bun run test:native && bun run test:native:app
 
       - name: Notarize
         if: steps.signing.outputs.sign == 'true' && steps.signing.outputs.notarize == 'true'
@@ -158,7 +146,8 @@ jobs:
         env:
           APPLE_SIGNING_IDENTITY: ${{ steps.appstore-signing.outputs.apple-signing-identity }}
           APPLE_INSTALLER_SIGNING_IDENTITY: ${{ steps.appstore-signing.outputs.apple-signing-installer-identity }}
-          APPLE_PROVISIONING_PROFILE_PATH: ${{ steps.appstore-signing.outputs.apple-signing-provisioning-profile }}
+          APPLE_PROVISIONING_PROFILE: ${{ steps.appstore-signing.outputs.apple-signing-provisioning-profile }}
+          HUSH_DISTRIBUTION: app-store
         run: |
           # Rebuild first: the direct-download signing above applied the
           # hardened-runtime entitlements, and the store needs the sandboxed
