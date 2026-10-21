@@ -98,7 +98,7 @@ export class HushController {
     this.prefs = parsePreferences(prefsText)
     this.stats = parseStatistics(statsText, now)
 
-    await this.refreshShortcuts()
+    await this.checkShortcuts()
     await this.refreshScreenRecording()
     await this.refreshFocusStatus()
     // Respect Login Items changes made in System Settings. Only an explicit
@@ -159,8 +159,7 @@ export class HushController {
     const next = normalizePreferences({ ...this.prefs, ...patch })
     const intervalChanged = next.detectionIntervalMs !== this.prefs.detectionIntervalMs
     const launchChanged = next.launchAtLogin !== this.prefs.launchAtLogin
-    const shortcutsChanged
-     = next.focusOnShortcut !== this.prefs.focusOnShortcut
+    const shortcutsChanged = next.focusOnShortcut !== this.prefs.focusOnShortcut
       || next.focusOffShortcut !== this.prefs.focusOffShortcut
 
     this.prefs = next
@@ -168,7 +167,7 @@ export class HushController {
       throw new Error('Hush could not save preferences. Check access to Application Support.')
 
     if (launchChanged) await this.syncLaunchAtLogin()
-    if (shortcutsChanged) await this.refreshShortcuts()
+    if (shortcutsChanged) await this.checkShortcuts()
     if (intervalChanged) await screenSharing.watch(next.detectionIntervalMs)
 
     // A preference change can make the current signal actionable — turning
@@ -194,7 +193,16 @@ export class HushController {
    *
    * Returns `'unknown'` where enumeration is impossible rather than guessing.
    */
-  async refreshShortcuts(): Promise<boolean | 'unknown'> {
+  refreshShortcuts(): Promise<boolean | 'unknown'> {
+    return this.enqueue(async () => {
+      const ready = await this.checkShortcuts()
+      await this.applyPolicy()
+      this.emit()
+      return ready
+    })
+  }
+
+  private async checkShortcuts(): Promise<boolean | 'unknown'> {
     const result = await focus.listShortcutsResult()
     this.shortcutsReady = result.canList
       ? result.shortcuts.includes(this.prefs.focusOnShortcut)
@@ -283,6 +291,7 @@ export class HushController {
 
     const enabling = action === 'enable'
     if (enabling && !manual) {
+      if (this.shortcutsReady === false) return
       const current = await focus.getStatus()
       // A Focus the user already enabled belongs to them. Do not replace it
       // with Do Not Disturb or later clear it when sharing ends.

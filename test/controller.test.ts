@@ -167,6 +167,20 @@ describe('HushController', () => {
     await c.stop()
   })
 
+  it('re-checking installed shortcuts makes an unchanged share actionable', async () => {
+    bridge.whenCalled('focus', 'listShortcutsResult', () => ({ canList: true, shortcuts: [] }))
+    const c = new HushController()
+    await c.start()
+    await c.updatePreferences({ activationDelayMs: 0 })
+    emitShare(SHARING)
+    await settle()
+    expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
+    bridge.whenCalled('focus', 'listShortcutsResult', () => ({ canList: true, shortcuts: ['Hush Focus On', 'Hush Focus Off'] }))
+    await c.refreshShortcuts()
+    expect(c.snapshot().engaged).toBe(true)
+    await c.stop()
+  })
+
   it('settles activation and deactivation after a single native change event', async () => {
     const c = new HushController()
     await c.start()
