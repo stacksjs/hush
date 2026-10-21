@@ -28,12 +28,12 @@
   ],
   "files": [
     "README.md",
-    "dist/Hush.dmg"
+    "dist/*.dmg"
   ],
   "scripts": {
-    "dev": "bun scripts/dev.ts",
-    "build": "bun scripts/build.ts",
-    "package": "bun scripts/build.ts --dmg",
+    "dev": "./buddy dev",
+    "build": "./buddy build",
+    "package": "./buddy package",
     "lint": "bunx --bun pickier .",
     "lint:fix": "bunx --bun pickier . --fix",
     "format": "bunx --bun pickier . --format",
@@ -45,20 +45,29 @@
     "release:patch": "bunx --bun @stacksjs/bumpx patch --recursive --commit --tag --push --yes",
     "release:minor": "bunx --bun @stacksjs/bumpx minor --recursive --commit --tag --push --yes",
     "release:major": "bunx --bun @stacksjs/bumpx major --recursive --commit --tag --push --yes",
-    "test": "bun test --preload ./test-utils/dom.ts",
-    "typecheck": "bun --bun tsc --noEmit"
+    "test": "bun run test:unit",
+    "typecheck": "bun --bun tsc --noEmit",
+    "test:unit": "bun test test/preferences.test.ts test/policy.test.ts test/controller.test.ts test/statistics.test.ts --preload ./test-utils/dom.ts",
+    "test:e2e": "bun test test/e2e.test.ts --preload ./test-utils/dom.ts",
+    "test:native": "bun scripts/test-native.ts",
+    "test:native:app": "bun scripts/test-native.ts --launch-services",
+    "verify": "bun run build && bun run typecheck && bun run test:unit && bun run test:e2e && bun run test:native && bun run test:native:app",
+    "predev": "bun scripts/setup-craft.ts",
+    "prebuild": "bun scripts/setup-craft.ts",
+    "prepackage": "bun scripts/setup-craft.ts"
   },
   "dependencies": {
-    "@stacksjs/desktop": "^0.2.128",
-    "@stacksjs/stx": "^0.2.128"
+    "@stacksjs/desktop": "^0.2.643",
+    "@stacksjs/stx": "^0.2.643"
   },
   "devDependencies": {
-    "@stacksjs/bumpx": "^0.2.10",
-    "@types/bun": "^1.2.13",
-    "bun-git-hooks": "^0.3.1",
-    "pickier": "^0.1.44",
-    "typescript": "^5.8.3",
-    "very-happy-dom": "^0.1.10"
+    "@stacksjs/buddy": "^0.75.256",
+    "@stacksjs/bumpx": "^0.2.25",
+    "@types/bun": "^1.4.3",
+    "bun-git-hooks": "^0.3.3",
+    "pickier": "^0.1.75",
+    "typescript": "^5.9.3",
+    "very-happy-dom": "^0.1.12"
   },
   "git-hooks": {
     "pre-commit": {
@@ -67,5 +76,8 @@
       }
     },
     "commit-msg": "bunx gitlint --edit .git/COMMIT_EDITMSG"
+  },
+  "stacks": {
+    "type": "native"
   }
 }

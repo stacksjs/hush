@@ -30,3 +30,10 @@ bun.lockb
 
 # Pinned Craft runtime checkout (scripts/setup-craft.sh)
 /.craft
+
+# Framework build cache
+/storage/framework/stx
+
+# Local Apple signing configuration
+.env
+.env.*
