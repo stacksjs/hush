@@ -1,3 +1,21 @@
+[Compare changes](https://github.com/stacksjs/hush/compare/v0.2.0...v0.2.1)
+
+## ✨ Features
+
+- redesign the native Hush popover and app identity ([6848cbb](https://github.com/stacksjs/hush/commit/6848cbb)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🐛 Bug Fixes
+
+- reconcile native Focus and menu-bar state ([beffbbb](https://github.com/stacksjs/hush/commit/beffbbb)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.2.1 ([cd298db](https://github.com/stacksjs/hush/commit/cd298db)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/hush/compare/v0.1.3...v0.2.0)
 
 ## 💥 Breaking Changes
