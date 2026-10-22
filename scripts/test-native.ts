@@ -4,6 +4,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { config } from '../craft.config'
+import { nativeArtifactSha256 } from './native-artifact'
+import { isNativeTabSharing } from './native-sharing'
 
 if (process.platform !== 'darwin') throw new Error('Native verification requires macOS.')
 const root = resolve(import.meta.dir, '..')
@@ -53,7 +55,7 @@ const output = testCase
   ? join(root, 'dist/e2e', `${testCase}.json`)
   : join(root, observeSharing ? exerciseFocus ? 'dist/live-focus-check.json' : 'dist/live-native-check.json' : launchServices ? 'dist/native-app-check.json' : 'dist/native-check.json')
 if (testCase) mkdirSync(join(root, 'dist/e2e'), { recursive: true })
-const runMetadata = { testCase: testCase ?? null, expectedApp: expectedApp ?? null, configuredCraftRevision: config.craftRevision, executableSha256: new Bun.CryptoHasher('sha256').update(readFileSync(executable)).digest('hex'), checkedAt: new Date().toISOString() }
+const runMetadata = { testCase: testCase ?? null, expectedApp: expectedApp ?? null, configuredCraftRevision: config.craftRevision, artifactSha256: nativeArtifactSha256(bundle), executableSha256: new Bun.CryptoHasher('sha256').update(readFileSync(executable)).digest('hex'), checkedAt: new Date().toISOString() }
 writeFileSync(output, `${JSON.stringify({ ...runMetadata, status: 'running' }, null, 2)}\n`)
 
 // Run the compiled application unchanged, followed by assertions. No bridge
@@ -117,6 +119,7 @@ const assertions = `<script>
     }
   }
   await stage('waiting for sharing to start');
+  await craft.fs.writeFile(${JSON.stringify(join(root, 'dist/live-sharing-ready.json'))}, JSON.stringify({ ...${JSON.stringify(runMetadata)}, ready: true, state, focusStatus, screenRecording, accessibility }));
   await waitForSharing(true);
   ${exerciseFocus ? `
   const activationDeadline = Date.now() + 30000;
@@ -145,10 +148,10 @@ const assertions = `<script>
     throw new Error('The expected app’s native sharing source was absent: ' + JSON.stringify(liveState));
   ` : ''}
   ${expectTabSharing ? `
-  if (!liveState.sources.some(source => source.app === 'Google Chrome' && source.window.endsWith(' - Tab content shared - Google Chrome')))
-    throw new Error('Expected a real native Chrome tab-capture indicator: ' + JSON.stringify(liveState));
+  if (!liveState.sources.some(${isNativeTabSharing.toString()}))
+    throw new Error('Expected a real native browser tab-capture indicator: ' + JSON.stringify(liveState));
   ` : ''}
-  await craft.fs.writeFile(${JSON.stringify(join(root, 'dist/live-sharing-start.json'))}, JSON.stringify(liveState));
+  await craft.fs.writeFile(${JSON.stringify(join(root, 'dist/live-sharing-start.json'))}, JSON.stringify({ ...liveState, ...${JSON.stringify(runMetadata)} }));
   await stage('waiting for sharing to stop');
   await waitForSharing(false);
   ${exerciseFocus ? `
@@ -198,11 +201,16 @@ const assertions = `<script>
 
 try {
   const input = join(work, 'index.html')
+  const nativeStdout = join(work, 'native-stdout.log')
+  const nativeStderr = join(work, 'native-stderr.log')
+  writeFileSync(nativeStdout, '')
+  writeFileSync(nativeStderr, '')
   writeFileSync(input, html.replace('</body>', `${assertions}</body>`))
   const started = performance.now()
+  const nativeArgs = ['--html-file', input, ...(process.argv.includes('--verbose') ? ['--log-level', 'debug'] : [])]
   const args = launchServices
-    ? ['open', '-W', '-n', bundle, '--args', '--html-file', input]
-    : [executable, '--html-file', input]
+    ? ['open', '-W', '-n', '--stdout', nativeStdout, '--stderr', nativeStderr, bundle, '--args', ...nativeArgs]
+    : [executable, ...nativeArgs]
   const child = Bun.spawn(args, { stdout: 'pipe', stderr: 'pipe' })
   // LaunchServices gives us an `open -W` waiter, not the app process. Bound
   // cleanup to this test's unique HTML argument so timeouts cannot leak an
@@ -224,13 +232,19 @@ try {
     child.kill()
   }, budget)
   const forceTimeout = setTimeout(() => stopOwnedApp('SIGKILL'), budget + 2000)
-  const [stdout, stderr, exitCode] = await Promise.all([
+  const [launcherStdout, launcherStderr, exitCode] = await Promise.all([
     new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
   ]).finally(() => {
     clearTimeout(timeout)
     clearTimeout(forceTimeout)
     stopOwnedApp(timedOut ? 'SIGKILL' : 'SIGTERM')
   })
+  const stdout = launcherStdout + (launchServices ? readFileSync(nativeStdout, 'utf8') : '')
+  const stderr = launcherStderr + (launchServices ? readFileSync(nativeStderr, 'utf8') : '')
+  if (process.argv.includes('--verbose')) {
+    process.stdout.write(stdout)
+    process.stderr.write(stderr)
+  }
   if (timedOut || exitCode !== 0) {
     const diagnostic = existsSync(reportPath) ? readFileSync(reportPath, 'utf8') : 'No native result was written.'
     throw new Error(`Native app ${timedOut ? 'timed out' : `exited with ${exitCode}`}: ${diagnostic}\n${stdout}${stderr}`)
@@ -245,9 +259,7 @@ try {
   report.automaticFocusVerified = exerciseFocus
   const firstSharingEvent = report.nativeSharingEvents?.find((event: { at: number, state: { sharing: boolean } }) => event.state.sharing)
   report.initialIdleMs = firstSharingEvent ? firstSharingEvent.at - Date.parse(runMetadata.checkedAt) : null
-  report.tabSharingVerified = report.liveSharingVerified === true && report.liveSharingSources.some((source: { app: string, window: string }) =>
-  (source.app === 'Dia' && source.window === 'Browser tab sharing')
-    || (source.app === 'Google Chrome' && source.window.endsWith(' - Tab content shared - Google Chrome')))
+  report.tabSharingVerified = report.liveSharingVerified === true && report.liveSharingSources.some(isNativeTabSharing)
   report.focusPreservationVerified = observeSharing && !exerciseFocus && report.liveSharingVerified === true && report.focusPreservationSettled === true
   Object.assign(report, runMetadata, { status: 'passed' })
   writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`)

@@ -47,7 +47,7 @@
     "release:major": "bunx --bun @stacksjs/bumpx major --recursive --commit --tag --push --yes",
     "test": "bun run test:unit",
     "typecheck": "bun --bun tsc --noEmit",
-    "test:unit": "bun test test/preferences.test.ts test/policy.test.ts test/controller.test.ts test/statistics.test.ts --preload ./test-utils/dom.ts",
+    "test:unit": "bun test test/preferences.test.ts test/policy.test.ts test/controller.test.ts test/statistics.test.ts test/native-sharing.test.ts test/native-artifact.test.ts --preload ./test-utils/dom.ts",
     "test:e2e": "bun test test/e2e.test.ts --preload ./test-utils/dom.ts",
     "test:native": "bun scripts/test-native.ts",
     "test:native:app": "bun scripts/test-native.ts --launch-services --background-ms=65000",
