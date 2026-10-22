@@ -8,6 +8,8 @@ const root = resolve(import.meta.dir, '..')
 const bundle = resolve(process.argv.find(arg => arg.startsWith('--app='))?.slice(6) ?? join(root, 'dist/Hush.app'))
 mkdirSync(join(root, 'dist/e2e'), { recursive: true })
 writeFileSync(join(root, 'dist/e2e/compatibility.json'), `${JSON.stringify({ status: 'running', checkedAt: new Date().toISOString() }, null, 2)}\n`)
+if (Bun.spawnSync(['codesign', '--verify', '--strict', bundle]).exitCode !== 0)
+  throw new Error('The current native artifact has an invalid signature or modified resources.')
 const executableSha256 = new Bun.CryptoHasher('sha256').update(readFileSync(join(bundle, 'Contents/MacOS/Hush'))).digest('hex')
 const cases = [
   ['zoom-window', 'Zoom'],
@@ -16,6 +18,7 @@ const cases = [
   ['discord-window', 'Discord'],
   ['slack-window', 'Slack'],
   ['google-meet-dia', 'Dia'],
+  ['zoom-automatic-focus-background', 'Zoom'],
 ] as const
 const failures: string[] = []
 const results = cases.map(([name, app]) => {
@@ -38,8 +41,13 @@ const results = cases.map(([name, app]) => {
     errors.push('requires a completed idle/start/stop cycle')
   if (report.executableSha256 !== executableSha256 || report.configuredCraftRevision !== config.craftRevision)
     errors.push('report belongs to another build')
-  if (report.focusPreservationVerified !== true || report.isFocused !== true)
+  if (name === 'zoom-automatic-focus-background') {
+    if (report.automaticFocusVerified !== true || report.isFocused !== false || !Number.isFinite(report.initialIdleMs) || report.initialIdleMs < 60_000)
+      errors.push('automatic Focus activation/release after a minute in the background was not verified')
+  }
+  else if (report.focusPreservationVerified !== true || report.focusPreservationSettled !== true || report.isFocused !== true) {
     errors.push('existing Focus preservation was not verified')
+  }
   if (report.screenRecording !== 'granted' || report.accessibility !== 'granted' || report.focusAuthorization !== 'authorized')
     errors.push('required native permissions were absent')
   if (!Array.isArray(report.liveSharingSources) || !report.liveSharingSources.some((source: { app: string }) => source?.app === app))
@@ -53,4 +61,4 @@ const summary = { status: failures.length ? 'failed' : 'passed', executableSha25
 writeFileSync(join(root, 'dist/e2e/compatibility.json'), `${JSON.stringify(summary, null, 2)}\n`)
 if (failures.length) throw new Error(failures.join('\n'))
 // eslint-disable-next-line no-console
-console.log('All six live compatibility cases passed on the current native executable.')
+console.log('All six clients and background Focus activation/release passed on the current native executable.')

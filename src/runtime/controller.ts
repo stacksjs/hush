@@ -1,5 +1,5 @@
 import type { PolicyState, Preferences, ShareState, Statistics } from '../core/types'
-import { focus, nativeAutoLaunch, notifications, permissions, screenSharing, watchScreenSharing } from '@stacksjs/desktop/browser'
+import { backgroundDelay, focus, nativeAutoLaunch, notifications, permissions, screenSharing, watchScreenSharing } from '@stacksjs/desktop/browser'
 import { describe, evaluate, toggleManually } from '../core/policy'
 import { DEFAULT_PREFERENCES, normalizePreferences, parsePreferences, serializePreferences } from '../core/preferences'
 import { emptyStatistics, parseStatistics, recordActivation, recordDeactivation, serializeStatistics } from '../core/statistics'
@@ -17,6 +17,8 @@ export interface HushState {
   share: ShareState
   /** Focus is on because of Hush. */
   engaged: boolean
+  /** A sharing transition is still waiting for its configured delay. */
+  transitionPending: boolean
   /** One-line description of what's happening. */
   status: string
   /**
@@ -57,7 +59,8 @@ export class HushController {
   private accessibility: PermissionStatus = 'undetermined'
   private listeners = new Set<StateListener>()
   private stopWatching: (() => void | Promise<void>) | null = null
-  private transitionTimer: ReturnType<typeof setTimeout> | null = null
+  private transitionTimer: AbortController | null = null
+  private transitionError: string | null = null
   private operations: Promise<unknown> = Promise.resolve()
   private started = false
   private starting: Promise<void> | null = null
@@ -70,7 +73,7 @@ export class HushController {
   }
 
   private cancelTransition(): void {
-    if (this.transitionTimer !== null) clearTimeout(this.transitionTimer)
+    this.transitionTimer?.abort()
     this.transitionTimer = null
   }
 
@@ -148,7 +151,8 @@ export class HushController {
       stats: { ...this.stats },
       share: { sharing: this.share.sharing, sources: [...this.share.sources] },
       engaged: this.policy.engaged,
-      status: describe(this.share.sharing, this.share.sources, this.policy.engaged),
+      transitionPending: this.policy.pending !== null,
+      status: this.transitionError || describe(this.share.sharing, this.share.sources, this.policy.engaged),
       shortcutsReady: this.shortcutsReady,
       screenRecording: this.screenRecording,
       accessibility: this.accessibility,
@@ -246,8 +250,8 @@ export class HushController {
   /** Ask for Screen Recording, or send the user to System Settings. */
   async requestScreenRecording(): Promise<PermissionStatus> {
     this.screenRecording = await permissions.request('screen_recording')
-    // macOS only ever prompts once; after that the switch has to be flipped by
-    // hand, so send the user straight to the pane instead of a dead button.
+    // If macOS still reports access unavailable, open the matching Privacy
+    // pane for this explicit setup action. Do not retry from the watcher.
     if (this.screenRecording !== 'granted') await permissions.openSettings('screen_recording')
     this.emit()
     return this.screenRecording
@@ -273,6 +277,7 @@ export class HushController {
   private async applyPolicy(): Promise<void> {
     this.cancelTransition()
     if (this.stopped) return
+    this.transitionError = null
     const { action, state } = evaluate(this.share.sharing, this.prefs, this.policy, Date.now())
     // An in-flight Shortcut has not changed Focus yet. Publish ownership only
     // after it succeeds, and serialize all edits through the same queue.
@@ -281,12 +286,21 @@ export class HushController {
     const pending = this.policy.pending
     if (pending && !this.stopped) {
       const delay = pending.target ? this.prefs.activationDelayMs : this.prefs.deactivationDelayMs
-      this.transitionTimer = setTimeout(() => {
-        void this.enqueue(async () => {
+      const timer = new AbortController()
+      this.transitionTimer = timer
+      this.transitionError = null
+      void backgroundDelay(Math.max(0, pending.since + delay - Date.now()), { signal: timer.signal }).then(() => {
+        if (this.transitionTimer !== timer) return
+        return this.enqueue(async () => {
+          if (this.transitionTimer !== timer) return
           await this.applyPolicy()
           this.emit()
         })
-      }, Math.max(0, pending.since + delay - Date.now()))
+      }).catch((error: unknown) => {
+        if (timer.signal.aborted) return
+        this.transitionError = `Hush could not schedule Focus: ${error instanceof Error ? error.message : String(error)}`
+        this.emit()
+      })
     }
   }
 

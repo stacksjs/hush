@@ -1,3 +1,4 @@
+import { mockBackgroundDelay } from '../test-utils/background-delay'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { findCall, installMockBridge } from '@stacksjs/desktop/test-utils'
 import { DEFAULT_PREFERENCES } from '../src/core/preferences'
@@ -52,7 +53,8 @@ describe('HushController', () => {
 
   beforeEach(() => {
     resetStorageCache()
-    bridge = installMockBridge(['fs', 'shell', 'focus', 'screenSharing', 'notifications', 'autoLaunch', 'permissions'])
+    bridge = installMockBridge(['fs', 'shell', 'focus', 'screenSharing', 'notifications', 'autoLaunch', 'permissions', 'timers'])
+    bridge.whenCalled('timers', 'sleep', mockBackgroundDelay)
     files = installFakeFs(bridge)
     bridge.whenCalled('screenSharing', 'getState', () => IDLE)
     bridge.whenCalled('screenSharing', 'watch', () => ({ ok: true, intervalMs: 2000 }))
@@ -70,6 +72,38 @@ describe('HushController', () => {
 
   afterEach(() => {
     bridge.uninstall()
+  })
+
+  it('surfaces native scheduling failures instead of silently missing Focus', async () => {
+    bridge.whenCalled('timers', 'sleep', (_ms: number, _options: unknown) => Promise.reject(new Error('Native deadline unavailable')))
+    const controller = new HushController()
+    await controller.start()
+    emitShare(SHARING)
+    await settle()
+    expect(controller.snapshot().status).toContain('Native deadline unavailable')
+    expect(controller.snapshot().engaged).toBe(false)
+    await controller.stop()
+  })
+
+  it('cancels pending native work on stop and ignores a late completion', async () => {
+    const pending: { signal?: AbortSignal, complete?: () => void } = {}
+    bridge.whenCalled('timers', 'sleep', (_ms: number, options: { signal: AbortSignal }) => {
+      pending.signal = options.signal
+      return new Promise<void>(resolve => { pending.complete = resolve })
+    })
+    const controller = new HushController()
+    await controller.start()
+    emitShare(SHARING)
+    await settle()
+    expect(pending.signal?.aborted).toBe(false)
+    expect(controller.snapshot().transitionPending).toBe(true)
+    await controller.stop()
+    expect(pending.signal?.aborted).toBe(true)
+    expect(controller.snapshot().transitionPending).toBe(false)
+    pending.complete?.()
+    await settle()
+    expect(controller.snapshot().engaged).toBe(false)
+    expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
   })
 
   it('starts with defaults on a clean install', async () => {

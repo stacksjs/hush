@@ -50,7 +50,7 @@
     "test:unit": "bun test test/preferences.test.ts test/policy.test.ts test/controller.test.ts test/statistics.test.ts --preload ./test-utils/dom.ts",
     "test:e2e": "bun test test/e2e.test.ts --preload ./test-utils/dom.ts",
     "test:native": "bun scripts/test-native.ts",
-    "test:native:app": "bun scripts/test-native.ts --launch-services",
+    "test:native:app": "bun scripts/test-native.ts --launch-services --background-ms=65000",
     "test:compatibility": "bun scripts/verify-compatibility.ts",
     "verify": "bun run build && bun run typecheck && bun run test:unit && bun run test:e2e && bun run test:native && bun run test:native:app",
     "predev": "bun scripts/setup-craft.ts",
@@ -58,8 +58,8 @@
     "prepackage": "bun scripts/setup-craft.ts"
   },
   "dependencies": {
-    "@stacksjs/desktop": "^0.2.643",
-    "@stacksjs/stx": "^0.2.643"
+    "@stacksjs/desktop": "^0.2.647",
+    "@stacksjs/stx": "^0.2.647"
   },
   "devDependencies": {
     "@stacksjs/buddy": "^0.75.256",

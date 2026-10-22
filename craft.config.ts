@@ -4,10 +4,10 @@
  * Buddy passes this configuration to the shared stx native packager.
  */
 import type { NativeBuildConfig } from '@stacksjs/stx/craft'
-import { join } from 'node:path'
 import process from 'node:process'
+import { join } from 'node:path'
 
-const craftRevision = '189980c13cdc77db073df0645002044c8203efa7'
+const craftRevision = '389752584c481537434dd0a7d2fea49bb4f2ba39'
 const appStore = process.env.HUSH_DISTRIBUTION === 'app-store'
 
 /** Application metadata around stx's shared native build configuration. */
@@ -25,7 +25,7 @@ export const config = {
   trayPopover: true,
   bundleStyle: 'executable',
   bundleId: 'org.stacksjs.hush',
-  craftVersion: '0.0.282',
+  craftVersion: '0.0.288',
   craftRevision,
   craftPath: process.env.CRAFT_BIN || join(import.meta.dir, '.craft', craftRevision, 'Tools/craft/packages/zig/zig-out/bin/craft'),
   macosSigning: process.env.APPLE_PROVISIONING_PROFILE ? {

@@ -34,7 +34,8 @@ bun run package
 requires an actual built artifact and must fail if it is missing. `test:native`
 runs that client in real WebKit against Craft, checks the binary-size and
 source-language constraints, and requires a clean exit. `test:native:app` also
-checks the app through LaunchServices. CI runs compiled and both native checks. Never replace the native check with mocks or skip failed checks.
+checks the app through LaunchServices and verifies its timer after 65 seconds
+in the background. CI runs compiled and both native checks. Never replace the native check with mocks or skip failed checks.
 
 macOS requires Screen Recording permission for window titles. Focus control
 uses the user's two Focus shortcuts. Never claim a live Focus transition was

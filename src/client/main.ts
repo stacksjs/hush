@@ -33,6 +33,7 @@ function render(state: HushState): void {
   if (root) {
     root.dataset.sharing = String(state.share.sharing)
     root.dataset.engaged = String(state.engaged)
+    root.dataset.transitionPending = String(state.transitionPending)
   }
 
   setText('status', state.status)
@@ -102,7 +103,7 @@ async function boot(): Promise<void> {
   })
 
   el('grant-recording')?.addEventListener('click', () => {
-    void controller.requestScreenRecording()
+    void controller.requestScreenRecording().catch(reportError)
   })
   el('grant-accessibility')?.addEventListener('click', () => {
     void controller.requestAccessibility().catch(reportError)

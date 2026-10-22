@@ -1,3 +1,4 @@
+import { mockBackgroundDelay } from '../test-utils/background-delay'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -72,6 +73,7 @@ function boot(overrides: Record<string, (...args: any[]) => unknown> = {}): Harn
     }),
   })
 
+  responses.set('timers:sleep', mockBackgroundDelay)
   responses.set('shell:getEnv', () => '/Users/test')
   responses.set('fs:exists', (path: string) => files.has(String(path)))
   responses.set('fs:readFile', (path: string) => ({ data: files.get(String(path)) ?? '' }))

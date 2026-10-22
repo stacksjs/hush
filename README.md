@@ -108,7 +108,8 @@ Native verification exercises the shipped client inside real WebKit: startup,
 filesystem round trips, screen-sharing state, shortcut enumeration, failed
 Shortcut execution without blocking the UI, and clean shutdown.
 `test:native:app` also launches through LaunchServices to exercise macOS’s app
-identity and permission context. Both checks run in CI. The compiled-client suite separately verifies transitions and controls
+identity and permission context, including a 65-second hidden-WebKit background
+timer check. Both native checks run in CI. The compiled-client suite separately verifies transitions and controls
 against a deterministic bridge. Missing build artifacts fail the E2E suite.
 A live conferencing/Focus check also requires Screen Recording permission and
 the two user-created shortcuts described above; the native report records
@@ -129,9 +130,12 @@ compatibility pass. Reports include the tested executable’s SHA-256 and the
 configured Craft revision; failed runs replace any earlier success for that case.
 
 Run `bun run test:compatibility` after collecting `zoom-window`, `teams-window`,
-`dia-local-tab`, `discord-window`, `slack-window`, and `google-meet-dia` cases.
-It requires all six real start/stop checks, the expected native app source,
-Focus preservation, and the current executable hash and Craft revision. Missing,
+`dia-local-tab`, `discord-window`, `slack-window`, and `google-meet-dia` cases,
+plus `zoom-automatic-focus-background` with `--exercise-focus` after waiting at
+least one minute before starting capture.
+It requires all six clients’ real start/stop checks, the expected native app
+source, existing Focus preservation, automatic activation/release after a
+minute in the background, and the current executable hash and Craft revision. Missing,
 failed, or stale reports fail the gate. Live client checks require local signed-in
 clients and are separate from the native bridge checks that run in CI.
 

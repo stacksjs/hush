@@ -41,9 +41,13 @@ const expectedSource = process.argv.find(arg => arg.startsWith('--expect-source=
 const testCase = process.argv.find(arg => arg.startsWith('--case='))?.slice(7)
 if (testCase && !/^[a-z0-9][a-z0-9-]{0,63}$/.test(testCase)) throw new Error('Use a lowercase, hyphenated test case name.')
 const observeSharing = exerciseFocus || expectTabSharing || Boolean(expectedApp) || process.argv.includes('--observe-sharing')
-const launchServices = setupPermissions || observeSharing || process.argv.includes('--launch-services')
+const backgroundArgument = process.argv.find(arg => arg.startsWith('--background-ms='))?.slice(16)
+const backgroundMs = backgroundArgument ? Number(backgroundArgument) : 0
+if (!Number.isSafeInteger(backgroundMs) || backgroundMs < 0 || backgroundMs > 120_000) throw new Error('Background duration must be 0–120000 milliseconds.')
+if (backgroundMs && observeSharing) throw new Error('Run background timing and interactive sharing checks separately.')
+const launchServices = setupPermissions || observeSharing || backgroundMs > 0 || process.argv.includes('--launch-services')
 const timeoutArgument = process.argv.find(arg => arg.startsWith('--timeout-ms='))?.slice(13)
-const budget = timeoutArgument ? Number(timeoutArgument) : observeSharing ? 250_000 : setupPermissions ? 120_000 : 25_000
+const budget = timeoutArgument ? Number(timeoutArgument) : observeSharing ? 250_000 : setupPermissions ? 120_000 : 25_000 + backgroundMs
 if (!Number.isSafeInteger(budget) || budget < 1000 || budget > 600_000) throw new Error('Native timeout must be 1000–600000 milliseconds.')
 const output = testCase
   ? join(root, 'dist/e2e', `${testCase}.json`)
@@ -94,10 +98,12 @@ const assertions = `<script>
   const accessibility = await craft.permissions.check('accessibility');
   if (screenRecording !== 'granted' && screenRecording !== 'denied') throw new Error('Screen Recording must use the real macOS permission API');
   let liveSharingVerified = false;
+  let focusPreservationSettled = false;
   let liveSharingSources = [];
   await stage('live sharing');
   ${observeSharing ? `
   if (state.sharing) throw new Error('The live test must start idle, before sharing begins: ' + JSON.stringify(state));
+  if (!document.getElementById('pref-automatic').checked) throw new Error('Live checks require automatic Focus enabled');
   if (screenRecording !== 'granted' || focusStatus.authorization !== 'authorized' || focusStatus.isFocused !== ${!exerciseFocus})
     throw new Error('Live check requires granted permissions and ${exerciseFocus ? 'no active' : 'an existing user'} Focus');
   async function waitForSharing(expected) {
@@ -107,7 +113,7 @@ const assertions = `<script>
         const latest = await craft.screenSharing.getState();
         throw new Error('The native sharing transition did not reach the shipped client: ' + JSON.stringify({ expected, latest, status: document.getElementById('status').textContent, sharing: document.getElementById('app').dataset.sharing }));
       }
-      await new Promise(r => setTimeout(r, 250));
+      await craft.timers.sleep(250);
     }
   }
   await stage('waiting for sharing to start');
@@ -116,10 +122,22 @@ const assertions = `<script>
   const activationDeadline = Date.now() + 30000;
   while (document.getElementById('app').dataset.engaged !== 'true') {
     if (Date.now() > activationDeadline) throw new Error('Hush did not enable Focus: ' + document.getElementById('status').textContent);
-    await new Promise(r => setTimeout(r, 250));
+    await craft.timers.sleep(250);
   }
   if ((await craft.focus.getStatus()).isFocused !== true) throw new Error('Automatic activation did not reach macOS');
-  ` : `if (document.getElementById('app').dataset.engaged !== 'false') throw new Error('Hush replaced the existing Focus');`}
+  ` : `
+  await stage('waiting for existing Focus preservation');
+  const preservationDeadline = Date.now() + 120000;
+  while (document.getElementById('app').dataset.transitionPending !== 'false') {
+    if (document.getElementById('app').dataset.sharing !== 'true') throw new Error('Capture ended before the Focus policy settled');
+    if (Date.now() > preservationDeadline) throw new Error('The Focus preservation policy did not settle');
+    await craft.timers.sleep(250);
+  }
+  if (document.getElementById('app').dataset.sharing !== 'true') throw new Error('Capture ended before Focus preservation was verified');
+  if (document.getElementById('app').dataset.engaged !== 'false' || (await craft.focus.getStatus()).isFocused !== true)
+    throw new Error('Hush replaced the existing Focus');
+  focusPreservationSettled = true;
+  `}
   const liveState = await craft.screenSharing.getState();
   liveSharingSources = liveState.sources;
   ${expectedApp ? `
@@ -134,17 +152,41 @@ const assertions = `<script>
   await stage('waiting for sharing to stop');
   await waitForSharing(false);
   ${exerciseFocus ? `
+  await stage('waiting for automatic Focus release');
   const releaseDeadline = Date.now() + 30000;
   while (document.getElementById('app').dataset.engaged !== 'false') {
     if (Date.now() > releaseDeadline) throw new Error('Hush did not release Focus: ' + JSON.stringify({ latest: await craft.screenSharing.getState(), events: nativeSharingEvents, status: document.getElementById('status').textContent }));
-    await new Promise(r => setTimeout(r, 250));
+    await craft.timers.sleep(250);
   }
   ` : ''}
   if ((await craft.focus.getStatus()).isFocused !== ${!exerciseFocus}) throw new Error('Unexpected macOS Focus after sharing');
   liveSharingVerified = true;
   ` : ''}
+  await stage('native timers');
+  const timerOrder = [];
+  await Promise.all([
+    craft.timers.sleep(80).then(() => timerOrder.push('slow')),
+    craft.timers.sleep(5).then(() => timerOrder.push('fast')),
+  ]);
+  if (timerOrder.join(',') !== 'fast,slow') throw new Error('Native timer replies were misrouted');
+  const cancellation = new AbortController();
+  const cancelledTimer = craft.timers.sleep(60000, { signal: cancellation.signal })
+    .then(() => { throw new Error('Cancelled native timer fired'); }, error => {
+      if (error.name !== 'AbortError') throw error;
+    });
+  cancellation.abort();
+  await cancelledTimer;
+  let backgroundTimerMs = null;
+  ${backgroundMs ? `
+  await stage('background timer');
+  const backgroundStarted = Date.now();
+  await craft.timers.sleep(${backgroundMs});
+  backgroundTimerMs = Date.now() - backgroundStarted;
+  if (backgroundTimerMs > ${backgroundMs + 10_000}) throw new Error('The hidden native client delayed its background timer: ' + backgroundTimerMs);
+  await craft.screenSharing.getState();
+  ` : ''}
   if (typeof shortcuts.canList !== 'boolean') throw new Error('Invalid native shortcut response');
-  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, initialSources: state.sources, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, nativeSharingEvents, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
+  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, initialSources: state.sources, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, nativeSharingEvents, backgroundTimerMs, focusPreservationSettled, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
   document.getElementById('quit').click();
 })().catch(async function(error) {
   try {
@@ -199,11 +241,14 @@ try {
   report.bundleBytes = bundleBytes
   report.nativeCheckMs = Math.round(performance.now() - started)
   report.launchServices = launchServices
+  report.backgroundTimingVerified = backgroundMs > 0
   report.automaticFocusVerified = exerciseFocus
+  const firstSharingEvent = report.nativeSharingEvents?.find((event: { at: number, state: { sharing: boolean } }) => event.state.sharing)
+  report.initialIdleMs = firstSharingEvent ? firstSharingEvent.at - Date.parse(runMetadata.checkedAt) : null
   report.tabSharingVerified = report.liveSharingVerified === true && report.liveSharingSources.some((source: { app: string, window: string }) =>
-    (source.app === 'Dia' && source.window === 'Browser tab sharing')
+  (source.app === 'Dia' && source.window === 'Browser tab sharing')
     || (source.app === 'Google Chrome' && source.window.endsWith(' - Tab content shared - Google Chrome')))
-  report.focusPreservationVerified = observeSharing && !exerciseFocus && report.liveSharingVerified === true
+  report.focusPreservationVerified = observeSharing && !exerciseFocus && report.liveSharingVerified === true && report.focusPreservationSettled === true
   Object.assign(report, runMetadata, { status: 'passed' })
   writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`)
   // eslint-disable-next-line no-console
