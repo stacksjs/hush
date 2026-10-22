@@ -72,6 +72,15 @@ const assertions = `<script>
     if (Date.now() > deadline) throw new Error('Controller did not start: ' + document.getElementById('status').textContent);
     await new Promise(r => setTimeout(r, 100));
   }
+  const controls = ['toggle-focus', 'pref-automatic', 'pref-keep', 'pref-notify', 'pref-login'];
+  for (const id of controls) {
+    const input = document.getElementById(id);
+    if (!(input instanceof HTMLInputElement) || input.type !== 'checkbox' || input.getAttribute('role') !== 'switch' || !input.hasAttribute('switch'))
+      throw new Error('The shipped native switch did not render: ' + id);
+    if (!document.querySelector('label[for="' + id + '"]')) throw new Error('Native switch has no label: ' + id);
+  }
+  if (!document.querySelector('.brand svg path')) throw new Error('Hush logo did not render');
+  if (document.documentElement.scrollWidth > innerWidth) throw new Error('Popover content overflows horizontally');
   await craft.fs.writeFile(${JSON.stringify(nativeFile)}, 'Hush native round trip');
   async function stage(name) {
     await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ error: 'Native check did not complete: ' + name }));

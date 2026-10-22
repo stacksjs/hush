@@ -307,6 +307,20 @@ describe('HushController', () => {
     await c.stop()
   })
 
+  it('refreshes external Login Items and Focus changes without taking ownership', async () => {
+    const c = new HushController()
+    await c.start()
+    bridge.whenCalled('autoLaunch', 'isEnabled', () => true)
+    bridge.whenCalled('focus', 'getStatus', () => ({ supported: true, authorization: 'authorized', isFocused: true }))
+    await c.refreshNativeState()
+    expect(c.snapshot().prefs.launchAtLogin).toBe(true)
+    expect(c.snapshot().systemFocus).toBe(true)
+    expect(c.snapshot().engaged).toBe(false)
+    expect(findCall(bridge.calls, 'autoLaunch', 'enable')).toBeUndefined()
+    expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
+    await c.stop()
+  })
+
   it('corrects a failed Login Items change instead of claiming it was enabled', async () => {
     bridge.whenCalled('autoLaunch', 'enable', () => false)
     const c = new HushController()

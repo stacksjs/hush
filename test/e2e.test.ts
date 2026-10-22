@@ -96,9 +96,8 @@ function boot(overrides: Record<string, (...args: any[]) => unknown> = {}): Harn
   // answer gets it on the very first call rather than racing the boot sequence.
   for (const [key, handler] of Object.entries(overrides)) responses.set(key, handler)
 
-  // Run only the app's own bundle. The stx router and the Craft component
-  // runtime are not what this test is about, and executing them adds noise
-  // without adding coverage.
+  // Execute every compiled component and app bundle with this window's DOM
+  // APIs, so shared controls hydrate with their actual shipped runtime.
   const bundles = [...html.matchAll(/<script\b([^>]*\bdata-stx-scoped\b[^>]*)>([\s\S]*?)<\/script>/g)]
   if (!bundles.length) throw new Error('No client bundle in the built document')
   for (const [, attrs, bundle] of bundles) {
@@ -106,8 +105,8 @@ function boot(overrides: Record<string, (...args: any[]) => unknown> = {}): Harn
     if (/^\s*import\s/m.test(bundle)) throw new Error('Client bundle contains an unresolved import')
     // Each app window has its own module registry, as it does in WebKit.
     // eslint-disable-next-line no-new-func
-    const run = new Function('window', 'document', 'globalThis', 'CustomEvent', 'Event', 'setTimeout', 'clearTimeout', bundle)
-    run(window, document, window, window.CustomEvent, window.Event, window.setTimeout.bind(window), window.clearTimeout.bind(window))
+    const run = new Function('window', 'document', 'globalThis', 'CustomEvent', 'Event', 'setTimeout', 'clearTimeout', 'MutationObserver', 'ResizeObserver', 'requestAnimationFrame', bundle)
+    run(window, document, window, window.CustomEvent, window.Event, window.setTimeout.bind(window), window.clearTimeout.bind(window), window.MutationObserver, window.ResizeObserver, window.requestAnimationFrame.bind(window))
   }
 
   const el = (id: string) => document.getElementById(id)
@@ -232,6 +231,27 @@ describe('Hush end to end (built bundle in a DOM)', () => {
     expect(h.checked('pref-keep')).toBe(false)
     expect(h.checked('pref-notify')).toBe(true)
     expect(h.checked('pref-login')).toBe(false)
+  })
+
+  it('uses labelled native switches and refreshes login state when the popover opens', async () => {
+    expect(h.document.getElementById('pref-login').getAttribute('role')).toBe('switch')
+    expect(h.document.querySelector('label[for="pref-login"]')?.textContent).toContain('Launch at login')
+    h.responses.set('autoLaunch:isEnabled', () => true)
+    h.responses.set('focus:getStatus', () => ({ supported: true, authorization: 'authorized', isFocused: true }))
+    h.window.dispatchEvent(new h.window.CustomEvent('craft:window:focus'))
+    await h.settle()
+    expect(h.checked('pref-login')).toBe(true)
+    expect(h.text('focus-state')).toBe('Your existing Focus is on')
+    expect(h.checked('toggle-focus')).toBe(false)
+    expect(findCall(h.calls, 'focus', 'setEnabled')).toBeUndefined()
+  })
+
+  it('dismisses with Escape without quitting or stopping detection', async () => {
+    h.window.dispatchEvent(new h.window.KeyboardEvent('keydown', { key: 'Escape' }))
+    await h.settle()
+    expect(findCall(h.calls, 'window', 'hide')).toBeDefined()
+    expect(findCall(h.calls, 'app', 'quit')).toBeUndefined()
+    expect(findCall(h.calls, 'screenSharing', 'unwatch')).toBeUndefined()
   })
 
   it('renders statistics rather than the placeholder', async () => {

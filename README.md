@@ -11,6 +11,8 @@
 
 ## Features
 
+- **A native menu-bar home** — a compact, rounded popover with a custom Hush mark, native switches, automatic light and dark appearance, and Escape to dismiss
+
 - 🎯 **Detection that means something** — matches the sharing *indicator* a conferencing app shows while a share is live, not the mere presence of the app
 - 🔕 **Automatic Focus** — turns Do Not Disturb on when you start presenting, off when you stop
 - 🌊 **No flapping** — transitions are debounced in both directions, so a sharing toolbar that rebuilds mid-meeting doesn't unsilence your Mac

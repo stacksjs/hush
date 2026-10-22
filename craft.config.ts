@@ -7,7 +7,7 @@ import type { NativeBuildConfig } from '@stacksjs/stx/craft'
 import process from 'node:process'
 import { join } from 'node:path'
 
-const craftRevision = '2592d86d68ce8803cc28a67b7dfa65d1ecfd7234'
+const craftRevision = '00e4b565c24fa131aa96a917ab5db2ddf4092cd7'
 const appStore = process.env.HUSH_DISTRIBUTION === 'app-store'
 
 /** Application metadata around stx's shared native build configuration. */
@@ -23,9 +23,10 @@ export const config = {
   target: 'macos',
   systemTray: true,
   trayPopover: true,
+  icon: join(import.meta.dir, 'assets/hush.icns'),
   bundleStyle: 'executable',
   bundleId: 'org.stacksjs.hush',
-  craftVersion: '0.0.289',
+  craftVersion: '0.0.292',
   craftRevision,
   craftPath: process.env.CRAFT_BIN || join(import.meta.dir, '.craft', craftRevision, 'Tools/craft/packages/zig/zig-out/bin/craft'),
   macosSigning: process.env.APPLE_PROVISIONING_PROFILE ? {
@@ -42,8 +43,8 @@ export const config = {
     title: 'Hush',
     // Popover proportions — the window only ever appears attached to the
     // menubar item, so this is the popover size, not a document window.
-    width: 340,
-    height: 560,
+    width: 368,
+    height: 640,
     resizable: false,
   },
 

@@ -1,5 +1,6 @@
 import type { HushState } from '../runtime/controller'
-import { app } from '@stacksjs/desktop/browser'
+import { app, nativeTray, nativeWindow } from '@stacksjs/desktop/browser'
+import { HUSH_TRAY_ICON } from '../brand'
 import { averageSessionSeconds, formatDuration } from '../core/statistics'
 import { HushController } from '../runtime/controller'
 
@@ -37,7 +38,11 @@ function render(state: HushState): void {
   }
 
   setText('status', state.status)
-  setText('focus-state', state.engaged ? 'Focus is on' : 'Hush is idle')
+  setText('focus-state', state.engaged ? 'Focus is on' : state.systemFocus === true ? 'Your existing Focus is on' : 'Hush is idle')
+  const ready = state.shortcutsReady !== false && state.focusStatusReadable && state.screenRecording === 'granted' && state.accessibility === 'granted'
+  setText('readiness', ready ? 'All set' : 'Setup needed')
+  setText('hero-title', state.engaged ? 'Enjoy a little quiet.' : state.share.sharing ? 'Your Focus comes first.' : 'Ready when you share.')
+  setText('hero-description', state.engaged ? 'Notifications can wait. Be here, now.' : state.systemFocus === true ? 'Your existing Focus stays just as you left it.' : 'Your next call, without the interruptions.')
   setChecked('toggle-focus', state.engaged)
 
   const sources = el('sources')
@@ -72,7 +77,9 @@ function render(state: HushState): void {
 }
 
 function reportError(error: unknown): void {
-  setText('status', error instanceof Error ? error.message : String(error))
+  setText('error', error instanceof Error ? error.message : String(error))
+  const message = el('error')
+  if (message) message.hidden = false
 }
 
 function bindCheckbox(id: string, apply: (checked: boolean) => Promise<void>): void {
@@ -110,12 +117,36 @@ async function boot(): Promise<void> {
   })
 
   el('quit')?.addEventListener('click', () => {
+    contentObserver?.disconnect()
     void controller.stop().then(() => app.quit()).catch(reportError)
   })
 
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') void nativeWindow.hide()
+  })
+  window.addEventListener('craft:window:focus', () => {
+    void controller.refreshNativeState().catch(reportError)
+  })
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void controller.refreshNativeState().catch(reportError)
+  })
+
   await controller.start()
+  await nativeTray.setIcon(HUSH_TRAY_ICON)
+  await nativeTray.setTitle('')
+  await nativeTray.setTooltip('Hush — a little peace of mind')
   const root = el('app')
-  if (root) root.dataset.ready = 'true'
+  if (root) {
+    root.dataset.ready = 'true'
+    if (typeof ResizeObserver !== 'undefined' && nativeWindow.available) {
+      contentObserver = new ResizeObserver(() => {
+        const height = Math.min(Math.ceil(root.scrollHeight), window.screen.availHeight - 48)
+        if (height > 0) void nativeWindow.setSize(368, height)
+      })
+      contentObserver.observe(root)
+    }
+  }
 }
 
+let contentObserver: ResizeObserver | undefined
 void boot().catch(reportError)

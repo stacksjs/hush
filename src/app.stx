@@ -1,251 +1,192 @@
 <script server>
+import { HUSH_MARK } from './brand'
 import { FOCUS_OFF_SHORTCUT, FOCUS_ON_SHORTCUT } from './core/preferences'
 
-const appName = 'Hush'
-const tagline = 'Silences your Mac while you share your screen.'
-
 const setupSteps = [
-  `Open Shortcuts and create a shortcut named “${FOCUS_ON_SHORTCUT}”.`,
-  'Add the “Set Focus” action, set it to turn Do Not Disturb on.',
-  `Create a second shortcut named “${FOCUS_OFF_SHORTCUT}” that turns it off.`,
+  `Create “${FOCUS_ON_SHORTCUT}” in Shortcuts with Set Focus → Do Not Disturb → On.`,
+  `Create “${FOCUS_OFF_SHORTCUT}” with Set Focus → Do Not Disturb → Off.`,
 ]
-
-const preferenceRows = [
-  { id: 'pref-automatic', label: 'Turn Focus on when sharing starts' },
-  { id: 'pref-keep', label: 'Keep Focus on after sharing ends' },
-  { id: 'pref-notify', label: 'Notify me when Focus changes' },
-  { id: 'pref-login', label: 'Launch at login' },
-]
-
-const statRows = [
-  { id: 'stat-sessions', label: 'Sessions' },
-  { id: 'stat-total', label: 'Total quiet time' },
-  { id: 'stat-average', label: 'Average session' },
+const preferences = [
+  { id: 'pref-automatic', title: 'Automatic Focus', description: 'Quiet when you share. Back when you finish.', icon: 'sparkles' },
+  { id: 'pref-keep', title: 'Stay in Focus', description: 'Keep the quiet after your call.', icon: 'moon' },
+  { id: 'pref-notify', title: 'Gentle notifications', description: 'A little heads-up when Focus changes.', icon: 'bell' },
+  { id: 'pref-login', title: 'Launch at login', description: 'Ready whenever your Mac is.', icon: 'power' },
 ]
 </script>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ appName }}</title>
+  <title>Hush</title>
   <style>
     :root {
       color-scheme: light dark;
-      --bg: #f6f6f7;
-      --panel: #ffffff;
-      --text: #16161a;
-      --muted: #6b6b76;
-      --line: #e3e3e8;
-      --accent: #4f46e5;
-      --live: #16a34a;
+      --surface: rgba(247, 248, 246, .94);
+      --card: rgba(255, 255, 255, .8);
+      --ink: #202b2c;
+      --muted: #6c7978;
+      --line: rgba(36, 63, 59, .09);
+      --accent: #37776d;
+      --accent-soft: #e5eeea;
+      --hero: linear-gradient(125deg, #e7f0e9, #eff2e9);
+      --hero-ink: #345e52;
+      --focus: #247b68;
+      --warning: #936124;
     }
-
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #16161a;
-        --panel: #1e1e24;
-        --text: #f4f4f6;
-        --muted: #9c9caa;
-        --line: #2d2d36;
-        --accent: #818cf8;
-        --live: #4ade80;
+        --surface: rgba(25, 31, 31, .95);
+        --card: rgba(255, 255, 255, .045);
+        --ink: #edf2ed;
+        --muted: #9baaa5;
+        --line: rgba(221, 238, 226, .085);
+        --accent: #a6cebc;
+        --accent-soft: #2d413a;
+        --hero: linear-gradient(125deg, #293e35, #29352f);
+        --hero-ink: #cfdfcf;
+        --focus: #9ad4b8;
+        --warning: #e1bc82;
       }
     }
-
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      padding: 14px;
-      width: 340px;
-      font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-    }
-
-    h1 { font-size: 15px; margin: 0; letter-spacing: -0.01em; }
-    p { margin: 0; }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 10px;
-    }
-
-    .row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      min-height: 26px;
-    }
-
-    .row + .row { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
-
-    .muted { color: var(--muted); }
-    .tabular { font-variant-numeric: tabular-nums; }
-
-    /* The status dot is the whole point of the popover: it should be
-       readable before any text is. */
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--muted);
-      flex: none;
-    }
-
-    #app[data-sharing="true"] .dot { background: var(--live); }
-
-    #app[data-sharing="true"] .dot::after {
-      content: '';
-      display: block;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      background: inherit;
-      animation: pulse 2s ease-out infinite;
-    }
-
-    @keyframes pulse {
-      from { transform: scale(1); opacity: 0.7; }
-      to { transform: scale(2.6); opacity: 0; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .dot::after { animation: none; }
-    }
-
-    .status-line { display: flex; align-items: center; gap: 8px; }
-
-    #sources {
-      margin: 8px 0 0;
-      font-size: 11px;
-      color: var(--muted);
-      white-space: pre-line;
-      word-break: break-word;
-    }
-
-    label { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; cursor: pointer; }
-    input[type="checkbox"] { accent-color: var(--accent); flex: none; margin: 0; }
-
-    #setup { border-color: var(--accent); }
-    #setup ol { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
-    #setup li + li { margin-top: 4px; }
-
-    button {
-      font: inherit;
-      color: var(--accent);
-      background: none;
-      border: 0;
-      padding: 0;
-      cursor: pointer;
-    }
-
-    button:hover { text-decoration: underline; }
-
-    footer { display: flex; justify-content: space-between; align-items: center; padding: 0 2px; }
+    [hidden] { display: none !important; }
+    html { background: transparent; }
+    body { margin: 0; color: var(--ink); background: var(--surface); font: 12px/1.45 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    button:disabled { opacity: .45; cursor: wait; }
+    #app { padding: 20px; display: flex; flex-direction: column; gap: 17px; }
+    h1, h2, p { margin: 0; }
+    .header { display: flex; align-items: center; gap: 10px; }
+    .brand { height: 36px; width: 36px; flex: none; border-radius: 11px; color: #f0f6ed; background: linear-gradient(145deg, #426e60, #203c36); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 2px 3px rgba(20,40,30,.09); }
+    .brand svg { display: block; width: 100%; height: 100%; }
+    h1 { font-size: 19px; font-weight: 650; letter-spacing: -.6px; line-height: 1.2; }
+    .tagline { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; font-size: 10px; color: var(--accent); background: var(--accent-soft); padding: 4px 8px; border-radius: 20px; white-space: nowrap; }
+    .badge::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+    .hero { background: var(--hero); border-radius: 15px; padding: 15px 16px; color: var(--hero-ink); border: 1px solid var(--line); }
+    .hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .eyebrow { font-size: 9px; letter-spacing: 1.3px; font-weight: 650; text-transform: uppercase; opacity: .75; }
+    .hero h2 { font-size: 18px; line-height: 1.25; letter-spacing: -.55px; font-weight: 600; margin: 6px 0 5px; }
+    .hero-copy { font-size: 11px; opacity: .85; }
+    .quiet-symbol { width: 31px; height: 31px; opacity: .65; margin-top: 10px; flex: none; }
+    .status-line { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 10px; }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .55; }
+    #app[data-sharing="true"] .dot { opacity: 1; background: var(--focus); box-shadow: 0 0 0 3px rgba(83, 157, 117, .12); }
+    #sources { white-space: pre-line; overflow-wrap: anywhere; margin-top: 7px; font-size: 10px; opacity: .8; }
+    .section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+    .section-heading h2 { font-size: 10px; letter-spacing: .2px; color: var(--muted); font-weight: 500; }
+    .group { border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
+    .preference { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+    .preference + .preference { border-top: 1px solid var(--line); }
+    .preference-label { cursor: pointer; flex: 1; min-width: 0; }
+    .preference-title { display: block; font-size: 11px; font-weight: 500; }
+    .preference-description { display: block; margin-top: 1px; color: var(--muted); font-size: 9px; }
+    .preference-control { display: flex; align-items: center; flex: none; }
+    .preference-control input { accent-color: var(--accent); }
+    .icon { width: 15px; height: 15px; color: var(--muted); flex: none; }
+    .focus-control { padding: 10px 12px; }
+    .focus-control .preference-title { font-size: 12px; }
+    .focus-control .preference-description { font-size: 10px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); padding: 12px 0; }
+    .stat { text-align: center; }
+    .stat + .stat { border-left: 1px solid var(--line); }
+    .stat-value { font-size: 18px; line-height: 1.1; font-weight: 500; letter-spacing: -.6px; font-variant-numeric: tabular-nums; }
+    .stat-label { font-size: 9px; color: var(--muted); margin-top: 5px; }
+    footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 1px; color: var(--muted); font-size: 9px; }
+    .privacy { display: flex; align-items: center; gap: 5px; }
+    .privacy svg { height: 11px; width: 11px; }
+    .text-button { border: 0; background: transparent; color: var(--accent); padding: 3px 0; font-size: 10px; }
+    .text-button:hover { opacity: .7; }
+    .setup-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--card); }
+    .setup-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; font-size: 11px; }
+    .setup-card p, .setup-card ol { font-size: 10px; color: var(--muted); }
+    .setup-card ol { margin: 7px 0 0; padding-left: 16px; }
+    .setup-card li + li { margin-top: 5px; }
+    #error { color: var(--warning); font-size: 10px; border: 1px solid var(--line); padding: 9px 11px; border-radius: 9px; }
+    @media (prefers-reduced-motion: no-preference) { button, input { transition: opacity .15s ease; } }
   </style>
 </head>
 <body>
-  <div id="app" data-sharing="false" data-engaged="false">
-    <header class="panel">
-      <div class="row">
-        <h1>{{ appName }}</h1>
-        <span id="focus-state" class="muted">Hush is idle</span>
-      </div>
-      <div class="status-line" style="margin-top: 8px;">
-        <span class="dot"></span>
-        <p id="status">Checking…</p>
-      </div>
-      <p id="sources" hidden></p>
+  <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <symbol id="icon-sparkles" viewBox="0 0 24 24"><path d="m12 3 2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2L12 3Z"/></symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20.8 13.2A9 9 0 0 1 10.8 3a9 9 0 1 0 10 10.2Z"/></symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></symbol>
+    <symbol id="icon-power" viewBox="0 0 24 24"><path d="M12 3v9M6 5.5a9 9 0 1 0 12 0"/></symbol>
+  </svg>
+  <main id="app" data-sharing="false" data-engaged="false">
+    <header class="header">
+      <div class="brand">{!! HUSH_MARK !!}</div>
+      <div><h1>Hush</h1><p class="tagline">A little peace of mind.</p></div>
+      <span id="readiness" class="badge">Checking</span>
     </header>
 
-    <section class="panel" id="setup" hidden>
-      <div class="row">
-        <strong>Finish setup</strong>
-        <button type="button" id="recheck-shortcuts">Re-check</button>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-top">
+        <div><p class="eyebrow">Room for a little quiet</p><h2 id="hero-title">Ready when you share.</h2><p id="hero-description" class="hero-copy">Your next call, without the interruptions.</p></div>
+        <svg class="quiet-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><use href="#icon-moon"/></svg>
       </div>
-      <p class="muted" style="margin-top: 6px; font-size: 12px;">
-        macOS only lets Shortcuts change Focus, so {{ appName }} needs two shortcuts to drive it.
-      </p>
-      <ol>
-        @foreach (setupSteps as step)
-          <li>{{ step }}</li>
+      <div class="status-line" role="status"><span class="dot" aria-hidden="true"></span><p id="status">Checking…</p></div>
+      <p id="sources" hidden></p>
+    </section>
+
+    <p id="error" role="alert" hidden></p>
+
+    <section class="setup-card" id="setup" hidden>
+      <div class="setup-title"><strong>Connect your Focus shortcuts</strong><button type="button" class="text-button" id="recheck-shortcuts">Check again</button></div>
+      <p>Hush uses two Shortcuts to change Focus on your Mac.</p>
+      <ol>@foreach (setupSteps as step)<li>{{ step }}</li>@endforeach</ol>
+    </section>
+    <section class="setup-card" id="focus-permission" hidden>
+      <div class="setup-title"><strong>Allow Focus status</strong><button type="button" class="text-button" id="grant-focus">Allow</button></div>
+      <p>Hush checks for a Focus you already turned on, so it can leave it alone.</p>
+    </section>
+    <section class="setup-card" id="recording" hidden>
+      <div class="setup-title"><strong>Allow Screen Recording</strong><button type="button" class="text-button" id="grant-recording">Open Settings</button></div>
+      <p>This lets Hush read window titles to detect sharing. Your screen is never recorded or saved.</p>
+    </section>
+    <section class="setup-card" id="accessibility" hidden>
+      <div class="setup-title"><strong>Detect sharing controls</strong><button type="button" class="text-button" id="grant-accessibility">Open Settings</button></div>
+      <p>Accessibility lets Hush recognize native sharing controls in browsers, Discord, and Slack.</p>
+    </section>
+
+    <section aria-label="Focus controls">
+      <div class="focus-control group preference">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-moon"/></svg>
+        <label for="toggle-focus" class="preference-label"><span class="preference-title">A moment of Focus</span><span id="focus-state" class="preference-description">Hush is idle</span></label>
+        <div class="preference-control"><Checkbox id="toggle-focus" appearance="switch" /></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="preferences-title">
+      <div class="section-heading"><h2 id="preferences-title">Make yourself comfortable</h2></div>
+      <div class="group">
+        @foreach (preferences as pref)
+          <div class="preference">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-{{ pref.icon }}"/></svg>
+            <label for="{{ pref.id }}" class="preference-label"><span class="preference-title">{{ pref.title }}</span><span class="preference-description">{{ pref.description }}</span></label>
+            <div class="preference-control"><Checkbox id="{{ pref.id }}" appearance="switch" /></div>
+          </div>
         @endforeach
-      </ol>
-    </section>
-
-    <section class="panel" id="focus-permission" hidden>
-      <div class="row">
-        <strong>Allow Focus status</strong>
-        <button type="button" id="grant-focus">Allow</button>
       </div>
-      <p class="muted" style="margin-top: 6px; font-size: 12px;">
-        Hush checks your existing Focus before enabling Do Not Disturb. Automatic activation
-        waits until macOS lets Hush read this status, so it can leave your own Focus alone.
-      </p>
     </section>
 
-    <section class="panel" id="recording" hidden>
-      <div class="row">
-        <strong>Allow Screen Recording</strong>
-        <button type="button" id="grant-recording">Open Settings</button>
+    <section aria-label="Your quiet time">
+      <div class="section-heading"><h2>Your quiet time</h2></div>
+      <div class="group stat-grid">
+        <div class="stat"><p id="stat-sessions" class="stat-value">—</p><p class="stat-label">Sessions</p></div>
+        <div class="stat"><p id="stat-total" class="stat-value">—</p><p class="stat-label">Quiet time</p></div>
+        <div class="stat"><p id="stat-average" class="stat-value">—</p><p class="stat-label">On average</p></div>
       </div>
-      <p class="muted" style="margin-top: 6px; font-size: 12px;">
-        macOS only reveals window titles to apps with this permission, and titles are how
-        {{ appName }} spots a Zoom or Meet share. Without it, only macOS Screen Sharing is detected.
-      </p>
-    </section>
-
-    <section class="panel" id="accessibility" hidden>
-      <div class="row">
-        <strong>Detect sharing controls</strong>
-        <button type="button" id="grant-accessibility">Open Settings</button>
-      </div>
-      <p class="muted" style="margin-top: 6px; font-size: 12px;">
-        Allow Accessibility so {{ appName }} can read native sharing controls in browsers, Discord, and Slack.
-        Screen Recording permission is also needed for sharing-window titles.
-      </p>
-    </section>
-
-    <section class="panel">
-      <div class="row">
-        <label for="toggle-focus">
-          <span>Focus</span>
-          <input type="checkbox" id="toggle-focus">
-        </label>
-      </div>
-      @foreach (preferenceRows as pref)
-        <div class="row">
-          <label for="{{ pref.id }}">
-            <span>{{ pref.label }}</span>
-            <input type="checkbox" id="{{ pref.id }}">
-          </label>
-        </div>
-      @endforeach
-    </section>
-
-    <section class="panel">
-      @foreach (statRows as stat)
-        <div class="row">
-          <span class="muted">{{ stat.label }}</span>
-          <span id="{{ stat.id }}" class="tabular">—</span>
-        </div>
-      @endforeach
     </section>
 
     <footer>
-      <span class="muted">{{ tagline }}</span>
-      <button type="button" id="quit">Quit</button>
+      <span class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="m12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7l8-4Z"/><path d="m8 12 3 3 5-6"/></svg>Quietly on your Mac. Always private.</span>
+      <button type="button" id="quit" class="text-button">Quit Hush</button>
     </footer>
-  </div>
-
+  </main>
   <script client>
     import './client/main'
   </script>

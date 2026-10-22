@@ -12,6 +12,7 @@ const STATISTICS_FILE = 'statistics.json'
 /** Everything the UI renders from. */
 export interface HushState {
   focusStatusReadable: boolean
+  systemFocus: boolean | null
   prefs: Preferences
   stats: Statistics
   share: ShareState
@@ -55,6 +56,7 @@ export class HushController {
   private policy: PolicyState = initialPolicyState()
   private shortcutsReady: boolean | 'unknown' = 'unknown'
   private focusStatusReadable = false
+  private systemFocus: boolean | null = null
   private screenRecording: PermissionStatus = 'undetermined'
   private accessibility: PermissionStatus = 'undetermined'
   private listeners = new Set<StateListener>()
@@ -147,6 +149,7 @@ export class HushController {
   snapshot(): HushState {
     return {
       focusStatusReadable: this.focusStatusReadable,
+      systemFocus: this.systemFocus,
       prefs: { ...this.prefs },
       stats: { ...this.stats },
       share: { sharing: this.share.sharing, sources: [...this.share.sources] },
@@ -235,6 +238,23 @@ export class HushController {
   private async refreshFocusStatus(): Promise<void> {
     const status = await focus.getStatus()
     this.focusStatusReadable = status?.supported === true && status.authorization === 'authorized' && status.isFocused !== null
+    this.systemFocus = this.focusStatusReadable ? status.isFocused : null
+  }
+
+  /** Re-read settings that may have changed while the popover was closed. */
+  refreshNativeState(): Promise<void> {
+    return this.enqueue(async () => {
+      const [login, recording, accessibility] = await Promise.all([
+        nativeAutoLaunch.isEnabled(),
+        permissions.check('screen_recording'),
+        permissions.check('accessibility'),
+      ])
+      this.prefs.launchAtLogin = login
+      this.screenRecording = recording
+      this.accessibility = accessibility
+      await this.refreshFocusStatus()
+      this.emit()
+    })
   }
 
   /** Permission is requested from the explicit setup button, never at boot. */
@@ -321,6 +341,7 @@ export class HushController {
       // A Focus the user already enabled belongs to them. Do not replace it
       // with Do Not Disturb or later clear it when sharing ends.
       this.focusStatusReadable = current?.supported === true && current.authorization === 'authorized' && current.isFocused !== null
+      this.systemFocus = this.focusStatusReadable ? current.isFocused : null
       if (!this.focusStatusReadable || current.isFocused === true) return
     }
     let result
@@ -347,6 +368,7 @@ export class HushController {
     }
 
     this.policy = { engaged: enabling, pending: null }
+    this.systemFocus = enabling
     const now = Date.now()
     this.stats = enabling
       ? recordActivation(this.stats, now, manual)
