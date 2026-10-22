@@ -7,7 +7,7 @@ import type { NativeBuildConfig } from '@stacksjs/stx/craft'
 import process from 'node:process'
 import { join } from 'node:path'
 
-const craftRevision = 'd420b7e01e19a9edb6c8bf2b0548677401859f62'
+const craftRevision = 'd675077c317c486d8b5743f3432c40ddf1cd693a'
 const appStore = process.env.HUSH_DISTRIBUTION === 'app-store'
 
 /** Application metadata around stx's shared native build configuration. */

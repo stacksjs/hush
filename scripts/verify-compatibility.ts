@@ -20,6 +20,8 @@ const cases = [
   ['discord-window', 'Discord'],
   ['slack-window', 'Slack'],
   ['google-meet-dia', 'Dia'],
+  ['chrome-local-tab', 'Google Chrome'],
+  ['google-meet-chrome', 'Google Chrome'],
   ['zoom-automatic-focus-background', 'Zoom'],
 ] as const
 const failures: string[] = []
@@ -54,8 +56,10 @@ const results = cases.map(([name, app]) => {
     errors.push('required native permissions were absent')
   if (!Array.isArray(report.liveSharingSources) || !report.liveSharingSources.some((source: { app: string }) => source?.app === app))
     errors.push(`missing native ${app} source`)
-  if (app === 'Dia' && report.tabSharingVerified !== true)
+  if ((app === 'Dia' || app === 'Google Chrome') && report.tabSharingVerified !== true)
     errors.push('native tab sharing was not verified')
+  if (name === 'google-meet-chrome' && (!Array.isArray(report.liveSharingSources) || !report.liveSharingSources.some((source: { app: string, window: string }) => source?.app === 'Google Chrome' && source.window === 'Browser tab sharing')))
+    errors.push('Chrome’s native sharing banner while Meet receives a background tab was not verified')
   if (errors.length) failures.push(`${name}: ${errors.join('; ')}`)
   return { name, app, status: errors.length ? 'failed' : 'passed', checkedAt: report.checkedAt, sources: report.liveSharingSources }
 })
@@ -63,4 +67,4 @@ const summary = { status: failures.length ? 'failed' : 'passed', artifactSha256,
 writeFileSync(join(root, 'dist/e2e/compatibility.json'), `${JSON.stringify(summary, null, 2)}\n`)
 if (failures.length) throw new Error(failures.join('\n'))
 // eslint-disable-next-line no-console
-console.log('All six clients and background Focus activation/release passed on the current native executable.')
+console.log('All six clients, Chrome tab capture and Meet, and background Focus activation/release passed on the current native executable.')

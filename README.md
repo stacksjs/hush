@@ -139,10 +139,15 @@ compatibility pass. Reports include the full signed bundle’s SHA-256, its exec
 configured Craft revision; failed runs replace any earlier success for that case.
 
 Run `bun run test:compatibility` after collecting `zoom-window`, `teams-window`,
-`dia-local-tab`, `discord-window`, `slack-window`, and `google-meet-dia` cases,
+`dia-local-tab`, `discord-window`, `slack-window`, `google-meet-dia`,
+`chrome-local-tab`, and `google-meet-chrome` cases,
 plus `zoom-automatic-focus-background` with `--exercise-focus` after waiting at
 least one minute before starting capture.
-It requires all six clients’ real start/stop checks, the expected native app
+Chrome's Meet check must keep the receiving Meet tab selected while sharing the
+separate capture-check tab. Craft reads the browser-owned sharing banner even
+when the captured tab is in the background; webpage text cannot satisfy it.
+The gate requires all six clients’ real start/stop checks, Chrome tab capture
+and Meet, the expected native app
 source, existing Focus preservation, automatic activation/release after a
 minute in the background, and the current signed artifact hash and Craft revision. Missing,
 failed, or stale reports fail the gate. Live client checks require local signed-in

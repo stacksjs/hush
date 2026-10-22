@@ -7,7 +7,8 @@ describe('native tab-source validation', () => {
     expect(isNativeTabSharing({ app: 'Dia', window: 'Hush capture check' })).toBe(false)
   })
 
-  it('requires Chrome’s native sharing suffix and provider identity', () => {
+  it('accepts Chrome’s native banner or sharing suffix with its provider identity', () => {
+    expect(isNativeTabSharing({ app: 'Google Chrome', window: 'Browser tab sharing' })).toBe(true)
     expect(isNativeTabSharing({ app: 'Google Chrome', window: 'Hush capture check - Tab content shared - Google Chrome' })).toBe(true)
     expect(isNativeTabSharing({ app: 'Google Chrome', window: 'Hush capture check - Google Chrome' })).toBe(false)
     expect(isNativeTabSharing({ app: 'TextEdit', window: 'Hush capture check - Tab content shared - Google Chrome' })).toBe(false)
@@ -17,6 +18,7 @@ describe('native tab-source validation', () => {
   it('serializes the same predicate used inside real WebKit', () => {
     const nativePredicate = new Function(`return (${isNativeTabSharing.toString()})`)() as typeof isNativeTabSharing
     expect(nativePredicate({ app: 'Dia', window: 'Browser tab sharing' })).toBe(true)
+    expect(nativePredicate({ app: 'Google Chrome', window: 'Browser tab sharing' })).toBe(true)
     expect(nativePredicate({ app: 'Dia', window: 'Sharing this tab' })).toBe(false)
   })
 })
