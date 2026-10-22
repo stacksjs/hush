@@ -58,15 +58,15 @@
     "prepackage": "bun scripts/setup-craft.ts"
   },
   "dependencies": {
-    "@stacksjs/desktop": "^0.2.647",
-    "@stacksjs/stx": "^0.2.647"
+    "@stacksjs/desktop": "^0.2.654",
+    "@stacksjs/stx": "^0.2.654"
   },
   "devDependencies": {
-    "@stacksjs/buddy": "^0.75.256",
+    "@stacksjs/buddy": "^0.75.258",
     "@stacksjs/bumpx": "^0.2.25",
     "@types/bun": "^1.4.3",
     "bun-git-hooks": "^0.3.3",
-    "pickier": "^0.1.75",
+    "pickier": "^0.1.76",
     "typescript": "^5.9.3",
     "very-happy-dom": "^0.1.12"
   },
