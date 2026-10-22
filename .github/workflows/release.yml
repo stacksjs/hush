@@ -177,6 +177,7 @@ jobs:
         with:
           install: 'false'
           release: 'true'
+          release-tag: v${{ steps.version.outputs.version }}
           # Validate this signed download with the real conferencing clients
           # before promoting the draft to a public release.
           release-draft: 'true'
