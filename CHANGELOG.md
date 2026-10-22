@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/stacksjs/hush/compare/v0.2.1...v0.2.2)
+
+## 🐛 Bug Fixes
+
+- detect Chrome Meet background tab sharing ([41c8f19](https://github.com/stacksjs/hush/commit/41c8f19)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.2.2 ([1eaaf3d](https://github.com/stacksjs/hush/commit/1eaaf3d)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/hush/compare/v0.2.0...v0.2.1)
 
 ## ✨ Features
