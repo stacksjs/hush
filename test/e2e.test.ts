@@ -242,7 +242,8 @@ describe('Hush end to end (built bundle in a DOM)', () => {
     await h.settle()
     expect(h.checked('pref-login')).toBe(true)
     expect(h.text('focus-state')).toBe('Your existing Focus is on')
-    expect(h.checked('toggle-focus')).toBe(false)
+    expect(h.checked('toggle-focus')).toBe(true)
+    expect(h.document.getElementById('toggle-focus').disabled).toBe(true)
     expect(findCall(h.calls, 'focus', 'setEnabled')).toBeUndefined()
   })
 

@@ -253,6 +253,14 @@ export class HushController {
       this.screenRecording = recording
       this.accessibility = accessibility
       await this.refreshFocusStatus()
+      if (this.systemFocus === false && this.policy.engaged) {
+        // The user or another automation turned Focus off outside Hush.
+        // End our session without sending another command or re-enabling it.
+        this.cancelTransition()
+        this.policy = initialPolicyState()
+        this.stats = recordDeactivation(this.stats, Date.now(), false)
+        await writeDocument(STATISTICS_FILE, serializeStatistics(this.stats))
+      }
       this.emit()
     })
   }

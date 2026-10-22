@@ -116,7 +116,7 @@ const preferences = [
     <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></symbol>
     <symbol id="icon-power" viewBox="0 0 24 24"><path d="M12 3v9M6 5.5a9 9 0 1 0 12 0"/></symbol>
   </svg>
-  <main id="app" data-sharing="false" data-engaged="false">
+  <main id="app" tabindex="-1" data-sharing="false" data-engaged="false">
     <header class="header">
       <div class="brand">{!! HUSH_MARK !!}</div>
       <div><h1>Hush</h1><p class="tagline">A little peace of mind.</p></div>
@@ -155,7 +155,7 @@ const preferences = [
     <section aria-label="Focus controls">
       <div class="focus-control group preference">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-moon"/></svg>
-        <label for="toggle-focus" class="preference-label"><span class="preference-title">A moment of Focus</span><span id="focus-state" class="preference-description">Hush is idle</span></label>
+        <label for="toggle-focus" class="preference-label"><span class="preference-title">Focus</span><span id="focus-state" class="preference-description">Hush is idle</span></label>
         <div class="preference-control"><Checkbox id="toggle-focus" appearance="switch" /></div>
       </div>
     </section>

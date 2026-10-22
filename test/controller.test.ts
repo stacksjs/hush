@@ -321,6 +321,19 @@ describe('HushController', () => {
     await c.stop()
   })
 
+  it('ends its session when macOS Focus was turned off externally, without sending another command', async () => {
+    const c = new HushController()
+    await c.start()
+    await c.toggleFocus(true)
+    bridge.whenCalled('focus', 'getStatus', () => ({ supported: true, authorization: 'authorized', isFocused: false }))
+    await c.refreshNativeState()
+    expect(c.snapshot().engaged).toBe(false)
+    expect(c.snapshot().systemFocus).toBe(false)
+    expect(c.snapshot().stats.lastDeactivatedAt).not.toBeNull()
+    await c.stop()
+    expect(bridge.calls.filter(call => call.ns === 'focus' && call.method === 'setEnabled')).toHaveLength(1)
+  })
+
   it('corrects a failed Login Items change instead of claiming it was enabled', async () => {
     bridge.whenCalled('autoLaunch', 'enable', () => false)
     const c = new HushController()

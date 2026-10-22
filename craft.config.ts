@@ -7,7 +7,7 @@ import type { NativeBuildConfig } from '@stacksjs/stx/craft'
 import process from 'node:process'
 import { join } from 'node:path'
 
-const craftRevision = '00e4b565c24fa131aa96a917ab5db2ddf4092cd7'
+const craftRevision = 'd420b7e01e19a9edb6c8bf2b0548677401859f62'
 const appStore = process.env.HUSH_DISTRIBUTION === 'app-store'
 
 /** Application metadata around stx's shared native build configuration. */
@@ -26,7 +26,7 @@ export const config = {
   icon: join(import.meta.dir, 'assets/hush.icns'),
   bundleStyle: 'executable',
   bundleId: 'org.stacksjs.hush',
-  craftVersion: '0.0.292',
+  craftVersion: '0.0.295',
   craftRevision,
   craftPath: process.env.CRAFT_BIN || join(import.meta.dir, '.craft', craftRevision, 'Tools/craft/packages/zig/zig-out/bin/craft'),
   macosSigning: process.env.APPLE_PROVISIONING_PROFILE ? {

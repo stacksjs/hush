@@ -108,7 +108,9 @@ JavaScript interpreter. The app's JavaScript continues to run on system WebKit.
 
 Native verification exercises the shipped client inside real WebKit: startup,
 filesystem round trips, screen-sharing state, shortcut enumeration, failed
-Shortcut execution without blocking the UI, and clean shutdown.
+Shortcut execution without blocking the UI, and clean shutdown. It also reads
+the rendered macOS menu-bar title, tooltip and template image, and checks
+the Focus and login switches against native state.
 `test:native:app` also launches through LaunchServices to exercise macOS’s app
 identity and permission context, including a 65-second hidden-WebKit background
 timer check. Both native checks run in CI. The compiled-client suite separately verifies transitions and controls

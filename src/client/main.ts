@@ -43,7 +43,12 @@ function render(state: HushState): void {
   setText('readiness', ready ? 'All set' : 'Setup needed')
   setText('hero-title', state.engaged ? 'Enjoy a little quiet.' : state.share.sharing ? 'Your Focus comes first.' : 'Ready when you share.')
   setText('hero-description', state.engaged ? 'Notifications can wait. Be here, now.' : state.systemFocus === true ? 'Your existing Focus stays just as you left it.' : 'Your next call, without the interruptions.')
-  setChecked('toggle-focus', state.engaged)
+  setChecked('toggle-focus', state.engaged || state.systemFocus === true)
+  const focusControl = el<HTMLInputElement>('toggle-focus')
+  if (focusControl) {
+    focusControl.disabled = state.systemFocus === true && !state.engaged
+    focusControl.title = focusControl.disabled ? 'Change your existing Focus in Control Center.' : 'Turn Do Not Disturb on or off for this session.'
+  }
 
   const sources = el('sources')
   if (sources) {
@@ -125,6 +130,7 @@ async function boot(): Promise<void> {
     if (event.key === 'Escape') void nativeWindow.hide()
   })
   window.addEventListener('craft:window:focus', () => {
+    el('app')?.focus({ preventScroll: true })
     void controller.refreshNativeState().catch(reportError)
   })
   document.addEventListener('visibilitychange', () => {

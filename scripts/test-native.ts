@@ -80,6 +80,11 @@ const assertions = `<script>
     if (!document.querySelector('label[for="' + id + '"]')) throw new Error('Native switch has no label: ' + id);
   }
   if (!document.querySelector('.brand svg path')) throw new Error('Hush logo did not render');
+  const nativeTray = await craft.tray.getState();
+  if (nativeTray.title !== '' || nativeTray.tooltip !== 'Hush — a little peace of mind' || !nativeTray.hasIcon || !nativeTray.template || !nativeTray.visible || nativeTray.imagePosition !== 1)
+    throw new Error('Hush status item did not render its icon and title correctly: ' + JSON.stringify(nativeTray));
+  const nativeLoginEnabled = await craft.autoLaunch.isEnabled();
+  if (document.getElementById('pref-login').checked !== nativeLoginEnabled) throw new Error('Launch at login disagrees with macOS');
   if (document.documentElement.scrollWidth > innerWidth) throw new Error('Popover content overflows horizontally');
   await craft.fs.writeFile(${JSON.stringify(nativeFile)}, 'Hush native round trip');
   async function stage(name) {
@@ -105,6 +110,12 @@ const assertions = `<script>
   ${setupPermissions ? 'await craft.notifications.requestPermission(); await craft.focus.requestAuthorization();' : ''}
   await stage('Focus status');
   const focusStatus = await craft.focus.getStatus();
+  if (focusStatus.authorization === 'authorized' && focusStatus.isFocused !== null) {
+    const focusSwitch = document.getElementById('toggle-focus');
+    if (focusSwitch.checked !== focusStatus.isFocused) throw new Error('Focus switch disagrees with macOS');
+    if (focusStatus.isFocused && document.getElementById('app').dataset.engaged !== 'true' && !focusSwitch.disabled)
+      throw new Error('An existing user Focus must remain protected');
+  }
   const screenRecording = await craft.permissions.check('screen_recording');
   const accessibility = await craft.permissions.check('accessibility');
   if (screenRecording !== 'granted' && screenRecording !== 'denied') throw new Error('Screen Recording must use the real macOS permission API');
@@ -198,7 +209,7 @@ const assertions = `<script>
   await craft.screenSharing.getState();
   ` : ''}
   if (typeof shortcuts.canList !== 'boolean') throw new Error('Invalid native shortcut response');
-  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, sharing: state.sharing, initialSources: state.sources, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, nativeSharingEvents, backgroundTimerMs, focusPreservationSettled, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
+  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, nativeTray, nativeLoginEnabled, sharing: state.sharing, initialSources: state.sources, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, nativeSharingEvents, backgroundTimerMs, focusPreservationSettled, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
   document.getElementById('quit').click();
 })().catch(async function(error) {
   try {
