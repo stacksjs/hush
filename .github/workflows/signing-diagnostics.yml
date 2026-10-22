@@ -33,4 +33,8 @@ jobs:
             await Bun.write(xml, decoded.stdout);
             const file = Bun.spawnSync(["/usr/bin/plutil", "-extract", "Entitlements", "json", "-o", "-", xml]);
             console.log(JSON.stringify({ stage: "file", exit: file.exitCode, bytes: file.stdout.length, stderr: file.stderr.toString(), diagnostic: file.exitCode ? file.stdout.toString() : undefined }));
+            const dictionary = Bun.spawnSync(["/usr/bin/plutil", "-extract", "Entitlements", "xml1", "-o", "-", "-"], { stdin: decoded.stdout });
+            const json = Bun.spawnSync(["/usr/bin/plutil", "-convert", "json", "-o", "-", "-"], { stdin: dictionary.stdout });
+            console.log(JSON.stringify({ stage: "dictionary", extractExit: dictionary.exitCode, convertExit: json.exitCode, bytes: json.stdout.length, stderr: dictionary.stderr.toString() + json.stderr.toString(), diagnostic: json.exitCode ? json.stdout.toString() : undefined }));
+            if (dictionary.exitCode !== 0 || json.exitCode !== 0) process.exit(1);
           '
