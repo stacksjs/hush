@@ -119,14 +119,19 @@ while preserving an existing Focus, run
 `--exercise-focus` additionally verifies automatic activation and release against
 macOS. Start and stop sharing while the check waits; these explicit live checks
 require the corresponding permissions and installed shortcuts.
-Add `--expect-tab-sharing` to require Chrome's actual native tab-capture
-indicator; a window-sharing signal cannot satisfy that check.
+Add `--expect-tab-sharing` to require Chrome's or Dia's actual native tab-capture
+indicator; a window-sharing signal cannot satisfy that check. `--verbose`
+includes the native process output when diagnosing bridge failures.
+`dist/live-sharing-ready.json` identifies the idle, permission-checked run that
+is ready for capture; `dist/live-sharing-start.json` identifies the same run
+after the native source and Focus checks settle. Match their `checkedAt` and
+artifact hash to the case report before starting or stopping capture.
 Use `--expect-app=Dia --expect-source='Browser tab sharing' --case=dia-meet-tab`
 for a Dia sharing cycle. `--expect-app` requires a source from that exact native
 application; `--expect-source` also checks its native indicator. Each named case
 writes a separate `dist/e2e/<case>.json` report. Live checks require an idle
 starting state and a real start/stop cycle; app launch alone never counts as a
-compatibility pass. Reports include the tested executable’s SHA-256 and the
+compatibility pass. Reports include the full signed bundle’s SHA-256, its executable’s SHA-256, and the
 configured Craft revision; failed runs replace any earlier success for that case.
 
 Run `bun run test:compatibility` after collecting `zoom-window`, `teams-window`,
@@ -135,7 +140,7 @@ plus `zoom-automatic-focus-background` with `--exercise-focus` after waiting at
 least one minute before starting capture.
 It requires all six clients’ real start/stop checks, the expected native app
 source, existing Focus preservation, automatic activation/release after a
-minute in the background, and the current executable hash and Craft revision. Missing,
+minute in the background, and the current signed artifact hash and Craft revision. Missing,
 failed, or stale reports fail the gate. Live client checks require local signed-in
 clients and are separate from the native bridge checks that run in CI.
 
@@ -159,10 +164,14 @@ bun run release:patch   # or release:minor / release:major
 ```
 
 bumpx bumps the version, commits, tags and pushes. The tag triggers the release
-workflow, which produces two artifacts from the same build:
+workflow, which produces a signed draft GitHub release. Install that draft's
+DMG, collect the six live client checks and the background Focus check against
+it, and run `bun run test:compatibility -- --app=/Applications/Hush.app`.
+Publish the draft only after those checks pass on the exact signed download.
+The workflow produces two artifacts from the same build:
 
 - **Direct download** — hardened-runtime, Developer ID signed, notarized and
-  stapled, published as a GitHub release with generated notes and a checksums
+  stapled when notarization is configured, staged as a draft with generated notes and a checksums
   manifest through the pantry action.
 - **Mac App Store** — sandboxed, distribution signed, wrapped in a `.pkg` by
   `scripts/package-appstore.sh` and uploaded to App Store Connect.

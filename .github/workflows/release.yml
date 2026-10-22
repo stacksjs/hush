@@ -177,6 +177,9 @@ jobs:
         with:
           install: 'false'
           release: 'true'
+          # Validate this signed download with the real conferencing clients
+          # before promoting the draft to a public release.
+          release-draft: 'true'
           release-files: dist/*.dmg
           # Notes come from the commits between the previous tag and this one,
           # so the release reads correctly without CHANGELOG.md having to be
