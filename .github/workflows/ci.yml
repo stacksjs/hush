@@ -16,7 +16,7 @@ jobs:
     # The core is platform-free, so the fast checks do not need a Mac.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up pantry
         uses: home-lang/pantry/packages/action@main
@@ -40,7 +40,7 @@ jobs:
     # shows up at tag time is the expensive kind.
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up pantry
         uses: home-lang/pantry/packages/action@main
