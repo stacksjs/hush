@@ -1,0 +1,70 @@
+{
+  "dependencies": {
+    "bun.com": "^1.4.3",
+    "github.com/create-dmg/create-dmg": "^1.2.2"
+  },
+  "native": {
+    "environment": "production",
+    "runtime": {
+      "revision": "d675077c317c486d8b5743f3432c40ddf1cd693a",
+      "version": "0.0.295"
+    },
+    "checks": {
+      "before": [
+        [
+          "bun",
+          "run",
+          "lint"
+        ],
+        [
+          "bun",
+          "run",
+          "typecheck"
+        ],
+        [
+          "bun",
+          "run",
+          "test:unit"
+        ]
+      ],
+      "after": [
+        [
+          "bun",
+          "run",
+          "test:e2e"
+        ],
+        [
+          "bun",
+          "run",
+          "test:native"
+        ],
+        [
+          "bun",
+          "run",
+          "test:native:app"
+        ]
+      ]
+    },
+    "macos": {
+      "maxBundleSize": 4194304,
+      "notarize": true,
+      "entitlements": {
+        "direct": {
+          "com.apple.developer.usernotifications.communication": true,
+          "com.apple.security.cs.allow-jit": true,
+          "com.apple.security.automation.apple-events": true,
+          "com.apple.security.files.user-selected.read-write": true
+        },
+        "appStore": {
+          "com.apple.developer.usernotifications.communication": true,
+          "com.apple.security.cs.allow-jit": true,
+          "com.apple.security.files.user-selected.read-write": true,
+          "com.apple.security.app-sandbox": true
+        }
+      }
+    },
+    "release": {
+      "draft": true
+    }
+  }
+}

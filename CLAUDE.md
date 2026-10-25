@@ -10,7 +10,7 @@ Layout:
 - `src/runtime/` — the controller wiring detection → policy → Focus, plus storage through Craft's file bridge.
 - `src/client/` — binds the controller to the popover DOM.
 - `src/app.stx` — the UI. `<script server>` for build-time data, `<script client>` for the entry import.
-- `scripts/` — pinned Craft provisioning and real native verification. Buddy owns build/dev/package.
+- `scripts/` — application-specific native verification. Buddy owns build/dev/package; Pantry provisions Craft.
 
 Two constraints shape the whole app, and neither is negotiable:
 
@@ -45,13 +45,15 @@ Native capabilities live in Craft (`~/Code/Tools/craft`) and are surfaced throug
 
 ## Releasing
 
-- `bun run release:patch` / `release:minor` / `release:major` — bumpx bumps, commits, tags and pushes
-- The tag triggers `.github/workflows/release.yml`, which builds once and produces two artifacts: a notarized DMG published as a GitHub release through the **pantry** action, and a sandboxed `.pkg` uploaded to App Store Connect
-- Release notes come from the commits since the previous tag (`release-changelog: auto`), so conventional messages are what the release page reads
-- Both signing paths are conditional on their secrets; without them the release still completes as an unsigned direct download
+- `bun run release:patch` / `release:minor` / `release:major` — Buddy delegates qualification and versioning to Pantry, then the shared publisher commits, tags and pushes
+- The tag calls Pantry's versioned native app workflow; `pantry.json` declares runtime pins, capabilities, checks and release targets
+- Pantry owns runtime/toolchain setup, signing, notarization, store packaging and publishing. Keep scripts and provider logic in `~/Code/pantry`
+- Release credentials are Buddy-encrypted in `.env.production`; only `DOTENV_PRIVATE_KEY_PRODUCTION` is passed to Actions. Keep `.env.keys` ignored; Pantry decrypts through `@stacksjs/env`
+- The configured Developer ID target requires signing and notarization; missing credentials fail the release. A draft is published only after exact-artifact live compatibility verification
+- Mac App Store delivery is opt-in through Pantry after account credentials are configured; Hush currently distributes a notarized DMG
 
 ## Bundle shape
 
 - Craft is `CFBundleExecutable` and reads `Contents/Resources/craft.json`. There is **no launcher script** — the Mac App Store requires a Mach-O executable, and CI asserts it
-- The Craft runtime is built from source at the immutable commit in `craft.config.ts` (`craftRevision`, with `craftVersion` checked), with the upstream first-party dependency SHAs and Zig lock respected. Bumping Craft means bumping that one field
+- The Craft runtime is built from source at the immutable commit in `pantry.json.native.runtime` (revision and version checked), with the upstream first-party dependency SHAs and Zig lock respected. Bumping Craft means bumping that one field
 - The store build is sandboxed, which changes behaviour rather than just packaging: Focus is set through `shortcuts://run-shortcut` instead of the CLI, and shortcuts cannot be enumerated, so `shortcutsReady` can be `'unknown'`

@@ -4,18 +4,6 @@
  * Buddy passes this configuration to the shared stx native packager.
  */
 import type { NativeBuildConfig } from '@stacksjs/stx/craft'
-import process from 'node:process'
-import { join } from 'node:path'
-
-const craftRevision = 'd675077c317c486d8b5743f3432c40ddf1cd693a'
-const appStore = process.env.HUSH_DISTRIBUTION === 'app-store'
-
-/** Application metadata around stx's shared native build configuration. */
-export type HushAppConfig = NativeBuildConfig & {
-  craftVersion: string
-  craftRevision: string
-  entitlements: { direct: string, appStore: string }
-}
 
 export const config = {
   name: 'Hush',
@@ -23,18 +11,9 @@ export const config = {
   target: 'macos',
   systemTray: true,
   trayPopover: true,
-  icon: join(import.meta.dir, 'assets/hush.icns'),
+  icon: 'assets/hush.icns',
   bundleStyle: 'executable',
-  bundleId: 'org.stacksjs.hush',
-  craftVersion: '0.0.295',
-  craftRevision,
-  craftPath: process.env.CRAFT_BIN || join(import.meta.dir, '.craft', craftRevision, 'Tools/craft/packages/zig/zig-out/bin/craft'),
-  macosSigning: process.env.APPLE_PROVISIONING_PROFILE ? {
-    identity: process.env.APPLE_SIGNING_IDENTITY,
-    entitlements: join(import.meta.dir, appStore ? 'build/entitlements.appstore.plist' : 'build/entitlements.plist'),
-    provisioningProfile: process.env.APPLE_PROVISIONING_PROFILE,
-    hardenedRuntime: !appStore,
-  } : undefined,
+  bundleId: 'com.stacksjs.hush',
   category: 'public.app-category.productivity',
   // Focus status requires macOS 12; the packaged app targets macOS 13+.
   minimumSystemVersion: '13.0',
@@ -59,10 +38,6 @@ export const config = {
     LSUIElement: true,
   },
 
-  entitlements: {
-    direct: 'build/entitlements.plist',
-    appStore: 'build/entitlements.appstore.plist',
-  },
-} satisfies HushAppConfig
+} satisfies NativeBuildConfig
 
 export default config

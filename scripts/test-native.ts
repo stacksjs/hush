@@ -1,17 +1,27 @@
 #!/usr/bin/env bun
 /** Exercise the shipped client inside real WebKit and the real Craft bridge. */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { config } from '../craft.config'
+import { readNativeAppConfig } from 'ts-pantry/native'
 import { nativeArtifactSha256 } from './native-artifact'
 import { isNativeTabSharing } from './native-sharing'
 
 if (process.platform !== 'darwin') throw new Error('Native verification requires macOS.')
 const root = resolve(import.meta.dir, '..')
+const craftRevision = readNativeAppConfig(root, true)!.runtime!.revision
 const bundle = resolve(process.argv.find(arg => arg.startsWith('--app='))?.slice(6) ?? join(root, 'dist/Hush.app'))
 const executable = join(bundle, 'Contents/MacOS/Hush')
 const html = readFileSync(join(bundle, 'Contents/Resources/index.html'), 'utf8')
+const metadata = Bun.spawnSync(['plutil', '-convert', 'json', '-o', '-', join(bundle, 'Contents/Info.plist')])
+if (metadata.exitCode !== 0) throw new Error('The built app must contain a valid Info.plist.')
+const plist = JSON.parse(metadata.stdout.toString())
+if (plist.NSFocusStatusUsageDescription !== config.infoPlist.NSFocusStatusUsageDescription || plist.LSUIElement !== true)
+  throw new Error('Hush must ship its Focus usage description and run as a menu-bar app.')
+if (existsSync(join(bundle, 'Contents/MacOS/craft'))) throw new Error('Hush must use Craft as its executable, without a second runtime.')
+const craftManifest = readFileSync(join(bundle, 'Contents/Resources/craft.json'), 'utf8')
+if (craftManifest.includes(root) || craftManifest.includes(homedir())) throw new Error('The shipped manifest must not reference the build machine.')
 function bundleSize(path: string): number {
   const stat = statSync(path)
   return stat.isDirectory() ? readdirSync(path).reduce((total, name) => total + bundleSize(join(path, name)), 0) : stat.size
@@ -55,7 +65,7 @@ const output = testCase
   ? join(root, 'dist/e2e', `${testCase}.json`)
   : join(root, observeSharing ? exerciseFocus ? 'dist/live-focus-check.json' : 'dist/live-native-check.json' : launchServices ? 'dist/native-app-check.json' : 'dist/native-check.json')
 if (testCase) mkdirSync(join(root, 'dist/e2e'), { recursive: true })
-const runMetadata = { testCase: testCase ?? null, expectedApp: expectedApp ?? null, configuredCraftRevision: config.craftRevision, artifactSha256: nativeArtifactSha256(bundle), executableSha256: new Bun.CryptoHasher('sha256').update(readFileSync(executable)).digest('hex'), checkedAt: new Date().toISOString() }
+const runMetadata = { testCase: testCase ?? null, expectedApp: expectedApp ?? null, configuredCraftRevision: craftRevision, artifactSha256: nativeArtifactSha256(bundle), executableSha256: new Bun.CryptoHasher('sha256').update(readFileSync(executable)).digest('hex'), checkedAt: new Date().toISOString() }
 writeFileSync(output, `${JSON.stringify({ ...runMetadata, status: 'running' }, null, 2)}\n`)
 
 // Run the compiled application unchanged, followed by assertions. No bridge
@@ -107,7 +117,15 @@ const assertions = `<script>
   await craft.fs.readFile(${JSON.stringify(nativeFile)});
   if (Date.now() - responsiveAt > 5000) throw new Error('A Shortcut blocked the native UI thread');
   if ((await failure).ok !== false) throw new Error('Native Shortcut failure was reported as success');
-  ${setupPermissions ? 'await craft.notifications.requestPermission(); await craft.focus.requestAuthorization();' : ''}
+  ${setupPermissions ? `
+  await craft.notifications.requestPermission();
+  document.getElementById('grant-focus').click();
+  const focusSetupDeadline = Date.now() + 90000;
+  while (!document.getElementById('focus-permission').hidden) {
+    if (Date.now() > focusSetupDeadline) throw new Error('Hush’s Focus setup did not complete');
+    await craft.timers.sleep(100);
+  }
+  ` : ''}
   await stage('Focus status');
   const focusStatus = await craft.focus.getStatus();
   if (focusStatus.authorization === 'authorized' && focusStatus.isFocused !== null) {

@@ -10,11 +10,14 @@ Source checkouts:
 - Stacks/Buddy: `~/Code/stacks`
 - stx and desktop APIs: `~/Code/Libraries/stx`
 - Craft: `~/Code/Tools/craft`
+- Pantry: `~/Code/pantry`
 
 Fix those sources, test them, and consume their published packages. Bun package
 linking and `CRAFT_BIN` are the supported local development overrides. Never
 patch installed dependencies. Hush keeps its policy, preferences, statistics,
-and UI; Buddy owns development, compilation, and packaging.
+and UI; Buddy owns development and compilation. Pantry owns runtime provisioning,
+signing, notarization, packaging policy and publishing through `pantry.json` and
+its versioned reusable native app workflow. Keep release logic out of this repo.
 
 `craft.config.ts` selects `trayPopover: true`. Craft's `menubarOnly` mode creates
 no page. The runtime is pinned by immutable Git revision and built using its
@@ -48,3 +51,9 @@ Accessibility reader and require its separate user grant. Never substitute a fak
 Use conventional commits and the repository's configured human Git identity.
 Push completed changes normally to `origin/main`, with no coauthor trailers.
 Preserve unrelated work and never force-push.
+
+Release credentials live in Buddy-encrypted `.env.production`. Commit ciphertext
+and public metadata only; keep `.env.keys` ignored. GitHub Actions receives
+`DOTENV_PRIVATE_KEY_PRODUCTION`, and Pantry loads through the shared Stacks env
+API. Use Buddy env commands to edit/check values; never add plaintext credentials
+or per-secret release scripts to Hush.

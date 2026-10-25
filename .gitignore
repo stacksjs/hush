@@ -28,8 +28,9 @@ bun.lockb
 .cursor
 .idea
 
-# Pinned Craft runtime checkout (scripts/setup-craft.sh)
+# Native build and verification evidence
 /.craft
+/.pantry
 
 # Framework build cache
 /storage/framework/stx
@@ -37,3 +38,6 @@ bun.lockb
 # Local Apple signing configuration
 .env
 .env.*
+
+# Buddy-encrypted production settings are committed; private keys stay local.
+!.env.production

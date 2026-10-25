@@ -60,6 +60,10 @@ Chrome and Dia tab-only sharing, Discord, and Slack also need **Accessibility**
 permission. Hush’s “Detect sharing controls” panel opens the native permission setup explicitly;
 launching the app never requests this access.
 
+Hush uses the bundle identity `com.stacksjs.hush`. When upgrading from an
+`org.stacksjs.hush` build, macOS requires new permission grants and login-item
+registration. Preferences and statistics stay in the same Hush application-support folder.
+
 ## Requirements
 
 - macOS 13.0 or later
@@ -79,7 +83,7 @@ bun run package          # dist/Hush.app + DMG
 bun run verify           # build, types, unit tests, compiled client, real native bridge
 ```
 
-Bun lifecycle hooks provision the runtime before dev/build/package. After setup,
+Buddy asks Pantry to provision the pinned runtime for dev/build/package.
 `./buddy dev`, `./buddy build`, and `./buddy package` use the same cached binary.
 
 For Focus status, the signed app needs Apple's Communication Notifications
@@ -90,8 +94,8 @@ The shared stx packager embeds the profile and signs the assembled bundle.
 Without signing configuration, development builds are ad-hoc signed and wait
 for readable Focus status before automatic activation.
 
-Release CI requires `APPLE_APPLICATION_CERTIFICATE`,
-`APPLE_CERTIFICATE_PASSWORD`, and `APPLE_PROVISIONING_PROFILE_BASE64`.
+Pantry reads `APPLE_APPLICATION_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`,
+and `APPLE_PROVISIONING_PROFILE_BASE64` from Buddy-encrypted `.env.production`.
 It verifies the signed executable before publishing; missing signing setup
 fails the release. Native checks never infer a live Focus transition from
 successful startup or shortcut enumeration.
@@ -160,7 +164,8 @@ src/core/       platform-free: the decision engine, preferences, statistics
 src/runtime/    the controller wiring detection → policy → Focus, and storage
 src/client/     binds the controller to the popover
 src/app.stx     the UI
-scripts/        pinned runtime setup and native verification
+scripts/        app-specific native verification
+pantry.json     runtime pins, capabilities, checks and release policy
 ```
 
 `src/core` has no imports outside itself, which is why the policy is covered
@@ -172,44 +177,47 @@ by tests that need neither a window nor a Mac.
 bun run release:patch   # or release:minor / release:major
 ```
 
-bumpx bumps the version, commits, tags and pushes. The tag triggers the release
-workflow, which produces a signed draft GitHub release. Install that draft's
-DMG, collect the six live client checks and the background Focus check against
-it, and run `bun run test:compatibility -- --app=/Applications/Hush.app`.
-Publish the draft only after those checks pass on the exact signed download.
-The workflow produces two artifacts from the same build:
+Buddy delegates release qualification and versioning to Pantry, which runs the
+app checks before bumpx commits, tags and pushes. The tag calls Pantry's
+versioned native app workflow. `pantry.json` declares the pinned runtime,
+capabilities, real native checks, size limit and release policy. Pantry installs
+locked dependencies, builds the immutable Craft runtime with its locked Zig
+compiler, compiles through Buddy, runs every check, signs with Developer ID,
+notarizes and staples the DMG, verifies uploaded assets and creates a draft with
+checksums and a notarization receipt. Missing required credentials fail the
+release; unsigned downloads are never published.
 
-- **Direct download** — hardened-runtime, Developer ID signed, notarized and
-  stapled when notarization is configured, staged as a draft with generated notes and a checksums
-  manifest through the pantry action.
-- **Mac App Store** — sandboxed, distribution signed, wrapped in a `.pkg` by
-  `scripts/package-appstore.sh` and uploaded to App Store Connect.
+Install the draft DMG, collect the six live client checks and background Focus
+check against it, and run
+`bun run test:compatibility -- --app=/Applications/Hush.app`. Publish only after
+those checks pass on the exact signed download. These interactive checks need
+signed-in clients and local permissions; hosted CI runs the compiled and real
+WebKit/LaunchServices checks.
 
-Developer ID signing and provisioning are required for a release. Notarization
-and the App Store upload use their additional secrets when configured.
+Signing certificates, the Communication Notifications profile and notarization
+credentials live in Buddy-encrypted `.env.production`, alongside its public key.
+GitHub Actions receives only `DOTENV_PRIVATE_KEY_PRODUCTION` and Pantry decrypts
+through the shared Stacks environment API. `.env.keys` stays ignored. Manage
+values with `./buddy env:set KEY --stdin --file .env.production`; validate with
+`./buddy env:check --file .env.production --strict`. Pantry handles temporary
+keychains, entitlement generation and credential cleanup.
+Hush contains no signing, notarization or store-packaging scripts.
 
-### Secrets
-
-| Secret | Used for |
-| --- | --- |
-| `APPLE_APPLICATION_CERTIFICATE` | Developer ID signing (direct download) |
-| `APPLE_CERTIFICATE_PASSWORD` | password for the `.p12` files |
-| `APPLE_PROVISIONING_PROFILE_BASE64` | Developer ID profile with Communication Notifications |
-| `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID` | notarization |
-| `APPLE_DISTRIBUTION_CERTIFICATE` | Apple Distribution signing (store) |
-| `APPLE_INSTALLER_CERTIFICATE` | 3rd Party Mac Developer Installer |
-| `APPLE_PROVISIONING_PROFILE` | embedded in the store bundle |
-| `APP_STORE_CONNECT_API_KEY_ID`, `..._ISSUER_ID`, `..._PRIVATE_KEY` | the upload |
-
-Certificates and profiles are base64-encoded.
+Mac App Store delivery is a separate Pantry target, enabled explicitly with
+`native.macos.appStore: true` once distribution certificates, a store profile
+and Connect credentials are configured. Its entitlement values are already
+declared in `pantry.json`. Hush currently releases the Developer ID DMG.
+See [Pantry native publishing](https://github.com/pantry-pm/pantry/tree/main/packages/ts-pantry#native-application-releases)
+for account setup and provider configuration. Android delivery belongs to
+Pantry too; Hush's application target is macOS.
 
 ### Why the two builds differ
 
 They are not the same binary signed twice. The store requires the App Sandbox,
 and the sandbox forbids spawning `/usr/bin/shortcuts` — the mechanism the
 direct build uses to set Focus. Craft detects the sandbox and switches to
-`shortcuts://run-shortcut`, which LaunchServices permits. The entitlements are
-separate documents for the same reason.
+`shortcuts://run-shortcut`, which LaunchServices permits. The capability sets are
+declared separately in `pantry.json` for the same reason.
 
 The store also requires `CFBundleExecutable` to be a Mach-O image, so Craft is
 the bundle's executable and reads `Resources/craft.json` beside it. There is no
