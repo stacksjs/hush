@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/stacksjs/hush/compare/v0.2.2...v0.2.3)
+
+## ✨ Features
+
+- use Pantry for encrypted native app releases ([1790324](https://github.com/stacksjs/hush/commit/1790324)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.2.3 ([1f229e2](https://github.com/stacksjs/hush/commit/1f229e2)) _(by Chris <chrisbreuer93@gmail.com>)_
+- wip ([776e175](https://github.com/stacksjs/hush/commit/776e175)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/hush/compare/v0.2.1...v0.2.2)
 
 ## 🐛 Bug Fixes
