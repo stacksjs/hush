@@ -1,3 +1,21 @@
+[Compare changes](https://github.com/stacksjs/hush/compare/v0.2.3...v0.2.4)
+
+## 🐛 Bug Fixes
+
+- use Pantry ticket transport recovery in native releases ([1e3a731](https://github.com/stacksjs/hush/commit/1e3a731)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 📝 Documentation
+
+- remove obsolete native publishing boilerplate ([22ac035](https://github.com/stacksjs/hush/commit/22ac035)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.2.4 ([0335b30](https://github.com/stacksjs/hush/commit/0335b30)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/hush/compare/v0.2.2...v0.2.3)
 
 ## ✨ Features
