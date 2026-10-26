@@ -32,7 +32,7 @@ function setChecked(id: string, checked: boolean): void {
 function render(state: HushState): void {
   const root = el('app')
   if (root) {
-    root.dataset.sharing = String(state.share.sharing)
+    root.dataset.sharing = state.sharingReadable ? String(state.share.sharing) : 'unknown'
     root.dataset.engaged = String(state.engaged)
     root.dataset.transitionPending = String(state.transitionPending)
   }
@@ -40,9 +40,9 @@ function render(state: HushState): void {
   setText('status', state.status)
   setText('focus-state', state.engaged ? 'Focus is on' : state.systemFocus === true ? 'Your existing Focus is on' : 'Hush is idle')
   const ready = state.shortcutsReady !== false && state.focusStatusReadable && state.screenRecording === 'granted' && state.accessibility === 'granted'
-  setText('readiness', ready ? 'All set' : 'Setup needed')
-  setText('hero-title', state.engaged ? 'Enjoy a little quiet.' : state.share.sharing ? 'Your Focus comes first.' : 'Ready when you share.')
-  setText('hero-description', state.engaged ? 'Notifications can wait. Be here, now.' : state.systemFocus === true ? 'Your existing Focus stays just as you left it.' : 'Your next call, without the interruptions.')
+  setText('readiness', !ready ? 'Setup needed' : state.sharingReadable ? 'All set' : 'Checking…')
+  setText('hero-title', !state.sharingReadable ? 'Getting ready…' : state.engaged ? 'Enjoy a little quiet.' : state.share.sharing ? 'Your Focus comes first.' : 'Ready when you share.')
+  setText('hero-description', !state.sharingReadable ? 'Checking your Mac’s sharing controls.' : state.engaged ? 'Notifications can wait. Be here, now.' : state.systemFocus === true ? 'Your existing Focus stays just as you left it.' : 'Your next call, without the interruptions.')
   setChecked('toggle-focus', state.engaged || state.systemFocus === true)
   const focusControl = el<HTMLInputElement>('toggle-focus')
   if (focusControl) {
@@ -55,7 +55,7 @@ function render(state: HushState): void {
     sources.textContent = state.share.sources
       .map(s => (s.window ? `${s.app} — ${s.window}` : s.app))
       .join('\n')
-    sources.hidden = state.share.sources.length === 0
+    sources.hidden = !state.sharingReadable || state.share.sources.length === 0
   }
 
   // `unknown` — the sandbox cannot enumerate shortcuts — shows no prompt.
@@ -82,7 +82,8 @@ function render(state: HushState): void {
 }
 
 function reportError(error: unknown): void {
-  setText('error', error instanceof Error ? error.message : String(error))
+  const errorText = error instanceof Error ? error.message : typeof error === 'string' ? error : error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : 'An unexpected error occurred. Please try again.'
+  setText('error', errorText)
   const message = el('error')
   if (message) message.hidden = false
 }

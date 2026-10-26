@@ -186,6 +186,36 @@ describe('Hush end to end (built bundle in a DOM)', () => {
     expect(h.hidden('sources')).toBe(true)
   })
 
+  it('boots into an explicit checking state after an incomplete native read and recovers from the watcher', async () => {
+    h.window.close()
+    h = boot({ 'screenSharing:getState': () => { throw { message: 'Native UI is busy' } } })
+    await h.settle()
+    expect(h.document.getElementById('app').dataset.ready).toBe('true')
+    expect(h.document.getElementById('app').dataset.sharing).toBe('unknown')
+    expect(h.text('status')).toBe('Checking sharing status…')
+    expect(h.text('readiness')).toBe('Checking…')
+    expect(findCall(h.calls, 'focus', 'setEnabled')).toBeUndefined()
+    expect(findCall(h.calls, 'screenSharing', 'watch')).toBeDefined()
+    h.emitShare(IDLE)
+    await h.settle()
+    expect(h.text('status')).toBe('Not sharing')
+    expect(h.text('readiness')).toBe('All set')
+  })
+
+  it('shows the native error message instead of coercing an error object into UI text', async () => {
+    h.window.close()
+    h = boot({
+      'permissions:check': (permission: string) => permission === 'accessibility' ? 'denied' : 'granted',
+      'permissions:request': () => { throw { message: 'macOS could not open sharing permissions.' } },
+    })
+    await h.settle()
+    expect(h.hidden('accessibility')).toBe(false)
+    h.click('grant-accessibility')
+    await h.settle()
+    expect(h.text('error')).toBe('macOS could not open sharing permissions.')
+    expect(h.text('error')).not.toContain('[object Object]')
+  })
+
   it('hides the setup panel when both shortcuts are installed', async () => {
     expect(h.hidden('setup')).toBe(true)
   })

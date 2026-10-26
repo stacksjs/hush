@@ -106,6 +106,25 @@ describe('HushController', () => {
     expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
   })
 
+  it('keeps watching after an incomplete initial read and acts only on confirmed sharing', async () => {
+    bridge.whenCalled('screenSharing', 'getState', () => Promise.reject({ message: 'Native UI is busy' }))
+    const controller = new HushController()
+    await controller.start()
+    expect(controller.snapshot().sharingReadable).toBe(false)
+    expect(controller.snapshot().status).toBe('Checking sharing status…')
+    expect(findCall(bridge.calls, 'screenSharing', 'watch')).toBeDefined()
+    await controller.updatePreferences({ automaticallyEnable: true, activationDelayMs: 0, deactivationDelayMs: 0 })
+    expect(findCall(bridge.calls, 'focus', 'setEnabled')).toBeUndefined()
+    emitShare(SHARING)
+    await settle()
+    expect(controller.snapshot().sharingReadable).toBe(true)
+    expect(controller.snapshot().engaged).toBe(true)
+    emitShare(IDLE)
+    await settle()
+    expect(controller.snapshot().engaged).toBe(false)
+    await controller.stop()
+  })
+
   it('starts with defaults on a clean install', async () => {
     const c = new HushController()
     await c.start()

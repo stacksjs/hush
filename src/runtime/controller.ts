@@ -12,6 +12,8 @@ const STATISTICS_FILE = 'statistics.json'
 /** Everything the UI renders from. */
 export interface HushState {
   focusStatusReadable: boolean
+  /** A confirmed native sharing reading has arrived. */
+  sharingReadable: boolean
   systemFocus: boolean | null
   prefs: Preferences
   stats: Statistics
@@ -53,6 +55,7 @@ export class HushController {
   private prefs: Preferences = { ...DEFAULT_PREFERENCES }
   private stats: Statistics = emptyStatistics(Date.now())
   private share: ShareState = IDLE_SHARE
+  private sharingReadable = false
   private policy: PolicyState = initialPolicyState()
   private shortcutsReady: boolean | 'unknown' = 'unknown'
   private focusStatusReadable = false
@@ -114,7 +117,15 @@ export class HushController {
     // preference edit below may register or unregister the item.
     this.prefs.launchAtLogin = await nativeAutoLaunch.isEnabled()
 
-    this.share = await screenSharing.getState()
+    this.sharingReadable = false
+    try {
+      this.share = await screenSharing.getState()
+      this.sharingReadable = true
+    }
+    catch {
+      // A busy native UI is unknown, not idle. The watcher emits its first
+      // confirmed reading when the provider becomes readable again.
+    }
     this.started = true
     this.stopWatching = await watchScreenSharing(
       state => void this.onShareChange(state),
@@ -149,13 +160,14 @@ export class HushController {
   snapshot(): HushState {
     return {
       focusStatusReadable: this.focusStatusReadable,
+      sharingReadable: this.sharingReadable,
       systemFocus: this.systemFocus,
       prefs: { ...this.prefs },
       stats: { ...this.stats },
       share: { sharing: this.share.sharing, sources: [...this.share.sources] },
       engaged: this.policy.engaged,
       transitionPending: this.policy.pending !== null,
-      status: this.transitionError || describe(this.share.sharing, this.share.sources, this.policy.engaged),
+      status: this.transitionError || (this.sharingReadable ? describe(this.share.sharing, this.share.sources, this.policy.engaged) : 'Checking sharing status…'),
       shortcutsReady: this.shortcutsReady,
       screenRecording: this.screenRecording,
       accessibility: this.accessibility,
@@ -297,6 +309,7 @@ export class HushController {
     return this.enqueue(async () => {
       if (this.stopped) return
       this.share = state
+      this.sharingReadable = true
       await this.applyPolicy()
       this.emit()
     })
@@ -304,7 +317,7 @@ export class HushController {
 
   private async applyPolicy(): Promise<void> {
     this.cancelTransition()
-    if (this.stopped) return
+    if (this.stopped || !this.sharingReadable) return
     this.transitionError = null
     const { action, state } = evaluate(this.share.sharing, this.prefs, this.policy, Date.now())
     // An in-flight Shortcut has not changed Focus yet. Publish ownership only
