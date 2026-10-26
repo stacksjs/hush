@@ -126,15 +126,21 @@ whether those shortcuts are installed. To verify a real window-sharing session
 while preserving an existing Focus, run
 `bun scripts/test-native.ts --observe-sharing`. With no Focus active,
 `--exercise-focus` additionally verifies automatic activation and release against
-macOS. Start and stop sharing while the check waits; these explicit live checks
-require the corresponding permissions and installed shortcuts.
+macOS. These explicit live checks require the corresponding permissions and
+installed shortcuts. Start sharing after the ready marker appears; follow the
+stop protocol below when the active marker appears.
 Add `--expect-tab-sharing` to require Chrome's or Dia's actual native tab-capture
 indicator; a window-sharing signal cannot satisfy that check. `--verbose`
 includes the native process output when diagnosing bridge failures.
 `dist/live-sharing-ready.json` identifies the idle, permission-checked run that
 is ready for capture; `dist/live-sharing-start.json` identifies the same run
-after the native source and Focus checks settle. Match their `checkedAt` and
-artifact hash to the case report before starting or stopping capture.
+after the native source and Focus checks settle, concurrent native reads agree,
+and capture stays active for at least thirty seconds. Match their `checkedAt`
+and artifact hash to the case report. Before operating the client's real Stop
+Sharing control, write `dist/live-sharing-stop.json` with the active run's
+`testCase`, `checkedAt`, and `stopRequestedAt: Date.now()`. The verifier rejects
+any native stop before that request and then requires both the watcher and a
+fresh native read to confirm sharing stopped.
 Use `--expect-app=Dia --expect-source='Browser tab sharing' --case=dia-meet-tab`
 for a Dia sharing cycle. `--expect-app` requires a source from that exact native
 application; `--expect-source` also checks its native indicator. Each named case

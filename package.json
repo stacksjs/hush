@@ -60,10 +60,10 @@
     "@stacksjs/components": "^0.2.698"
   },
   "devDependencies": {
-    "better-dx": "^0.2.38",
-    "very-happy-dom": "^0.4.0",
     "@stacksjs/buddy": "^0.75.315",
-    "ts-pantry": "^0.11.130"
+    "better-dx": "^0.2.38",
+    "ts-pantry": "^0.11.133",
+    "very-happy-dom": "^0.4.0"
   },
   "git-hooks": {
     "pre-commit": {

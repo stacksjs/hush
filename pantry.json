@@ -6,8 +6,8 @@
   "native": {
     "environment": "production",
     "runtime": {
-      "revision": "d675077c317c486d8b5743f3432c40ddf1cd693a",
-      "version": "0.0.295"
+      "revision": "1fb96b37dc6c30a431570c0902df5aa8a70c911c",
+      "version": "0.0.355"
     },
     "checks": {
       "before": [

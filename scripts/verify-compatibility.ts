@@ -44,6 +44,12 @@ const results = cases.map(([name, app]) => {
   const errors: string[] = []
   if (report.status !== 'passed' || report.liveSharingVerified !== true || report.sharing !== false)
     errors.push('requires a completed idle/start/stop cycle')
+  if (!Number.isSafeInteger(report.liveSharingSamples) || report.liveSharingSamples < 7)
+    errors.push('concurrent native reads during active capture were not verified')
+  if (!Number.isFinite(report.stableCaptureMs) || report.stableCaptureMs < 30000)
+    errors.push('native capture did not remain stable for thirty seconds')
+  if (!Number.isSafeInteger(report.stopRequestedAt) || !Array.isArray(report.nativeSharingEvents) || !report.nativeSharingEvents.some((event: { at: number, state: { sharing: boolean } }) => event.at >= report.stopRequestedAt && event.state?.sharing === false))
+    errors.push('native stop after operating the real sharing control was not verified')
   if (report.artifactSha256 !== artifactSha256 || report.executableSha256 !== executableSha256 || report.configuredCraftRevision !== craftRevision)
     errors.push('report belongs to another build')
   if (name === 'zoom-automatic-focus-background') {

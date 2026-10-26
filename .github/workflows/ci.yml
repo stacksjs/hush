@@ -11,4 +11,4 @@ permissions:
 
 jobs:
   native:
-    uses: pantry-pm/pantry/.github/workflows/native-check.yml@v0.11.132
+    uses: pantry-pm/pantry/.github/workflows/native-check.yml@v0.11.133

@@ -74,8 +74,9 @@ writeFileSync(output, `${JSON.stringify({ ...runMetadata, status: 'running' }, n
 // Run the compiled application unchanged, followed by assertions. No bridge
 // mocks, permissions changes, or Focus changes are involved in this check.
 const assertions = `<script>
-(async function() {
+(function() {
   const nativeSharingEvents = [];
+  (async function() {
   window.addEventListener('craft:screenSharing:change', event => {
     nativeSharingEvents.push({ at: Date.now(), state: event.detail });
     if (nativeSharingEvents.length > 20) nativeSharingEvents.shift();
@@ -83,7 +84,7 @@ const assertions = `<script>
   const deadline = Date.now() + 15000;
   while (document.getElementById('app').dataset.ready !== 'true') {
     if (Date.now() > deadline) throw new Error('Controller did not start: ' + document.getElementById('status').textContent);
-    await new Promise(r => setTimeout(r, 100));
+    await craft.timers.sleep(100);
   }
   const controls = ['toggle-focus', 'pref-automatic', 'pref-keep', 'pref-notify', 'pref-login'];
   for (const id of controls) {
@@ -153,6 +154,9 @@ const assertions = `<script>
   let liveSharingVerified = false;
   let focusPreservationSettled = false;
   let liveSharingSources = [];
+  let liveSharingSamples = 0;
+  let stableCaptureMs = 0;
+  let stopRequestedAt = null;
   await stage('live sharing');
   ${observeSharing ? `
   if (state.sharing) throw new Error('The live test must start idle, before sharing begins: ' + JSON.stringify(state));
@@ -172,6 +176,7 @@ const assertions = `<script>
   await stage('waiting for sharing to start');
   await craft.fs.writeFile(${JSON.stringify(join(root, 'dist/live-sharing-ready.json'))}, JSON.stringify({ ...${JSON.stringify(runMetadata)}, ready: true, state, focusStatus, screenRecording, accessibility }));
   await waitForSharing(true);
+  const activeCaptureStarted = Date.now();
   ${exerciseFocus ? `
   const activationDeadline = Date.now() + 30000;
   while (document.getElementById('app').dataset.engaged !== 'true') {
@@ -202,9 +207,53 @@ const assertions = `<script>
   if (!liveState.sources.some(${isNativeTabSharing.toString()}))
     throw new Error('Expected a real native browser tab-capture indicator: ' + JSON.stringify(liveState));
   ` : ''}
+  // Independent callers must observe the same active capture as the watcher.
+  // This exercises real concurrent native reads while sharing stays active.
+  for (let round = 0; round < 3; round++) {
+    const samples = await Promise.all([craft.screenSharing.getState(), craft.screenSharing.getState()]);
+    for (const sample of samples) {
+      if (!sample.sharing${expectedApp ? ` || !sample.sources.some(source => source.app === ${JSON.stringify(expectedApp)}${expectedSource ? ` && source.window.toLowerCase().includes(${JSON.stringify(expectedSource.toLowerCase())})` : ''})` : ''})
+        throw new Error('An active native sharing source disappeared between reads: ' + JSON.stringify(sample));
+      ${expectTabSharing ? `if (!sample.sources.some(${isNativeTabSharing.toString()})) throw new Error('Native tab capture disappeared between reads');` : ''}
+      if (document.getElementById('app').dataset.sharing !== 'true') throw new Error('The native watcher dropped an active share');
+      liveSharingSamples++;
+    }
+  }
+  const stableUntil = Date.now() + 30000;
+  while (Date.now() < stableUntil) {
+    if (document.getElementById('app').dataset.sharing !== 'true') throw new Error('The native watcher dropped capture during the stability check');
+    await craft.timers.sleep(250);
+  }
+  const settledCapture = await craft.screenSharing.getState();
+  if (!settledCapture.sharing${expectedApp ? ` || !settledCapture.sources.some(source => source.app === ${JSON.stringify(expectedApp)}${expectedSource ? ` && source.window.toLowerCase().includes(${JSON.stringify(expectedSource.toLowerCase())})` : ''})` : ''})
+    throw new Error('The native sharing source disappeared after the stability check: ' + JSON.stringify(settledCapture));
+  ${expectTabSharing ? `if (!settledCapture.sources.some(${isNativeTabSharing.toString()})) throw new Error('Native tab capture disappeared during the stability check');` : ''}
+  liveSharingSamples++;
+  stableCaptureMs = Date.now() - activeCaptureStarted;
+  const firstActiveEvent = nativeSharingEvents.findIndex(event => event.state.sharing === true);
+  if (firstActiveEvent >= 0 && nativeSharingEvents.slice(firstActiveEvent).some(event => event.state.sharing === false))
+    throw new Error('The native watcher emitted a false stop during active capture');
   await craft.fs.writeFile(${JSON.stringify(join(root, 'dist/live-sharing-start.json'))}, JSON.stringify({ ...liveState, ...${JSON.stringify(runMetadata)} }));
-  await stage('waiting for sharing to stop');
+  await stage('waiting for the real sharing control to be stopped');
+  const stopIntentDeadline = Date.now() + 120000;
+  while (stopRequestedAt === null) {
+    try {
+      const intentFile = await craft.fs.readFile(${JSON.stringify(join(root, 'dist/live-sharing-stop.json'))});
+      const intent = JSON.parse(intentFile.data);
+      if (intent.checkedAt === ${JSON.stringify(runMetadata.checkedAt)} && intent.testCase === ${JSON.stringify(runMetadata.testCase)} && Number.isSafeInteger(intent.stopRequestedAt) && intent.stopRequestedAt >= activeCaptureStarted && intent.stopRequestedAt <= Date.now())
+        stopRequestedAt = intent.stopRequestedAt;
+    }
+    catch {}
+    const activeIndex = nativeSharingEvents.findIndex(event => event.state.sharing === true);
+    if (activeIndex >= 0 && nativeSharingEvents.slice(activeIndex).some(event => event.state.sharing === false && (stopRequestedAt === null || event.at < stopRequestedAt)))
+      throw new Error('The native watcher reported a stop before the real sharing control was operated');
+    if (stopRequestedAt !== null) break;
+    if (document.getElementById('app').dataset.sharing !== 'true') throw new Error('Native sharing disappeared before the real stop was requested');
+    if (Date.now() > stopIntentDeadline) throw new Error('The live test driver did not request a real sharing stop');
+    await craft.timers.sleep(250);
+  }
   await waitForSharing(false);
+  if ((await craft.screenSharing.getState()).sharing) throw new Error('Native sharing remained active after the real stop');
   ${exerciseFocus ? `
   await stage('waiting for automatic Focus release');
   const releaseDeadline = Date.now() + 30000;
@@ -240,14 +289,15 @@ const assertions = `<script>
   await craft.screenSharing.getState();
   ` : ''}
   if (typeof shortcuts.canList !== 'boolean') throw new Error('Invalid native shortcut response');
-  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, nativeTray, nativeLoginEnabled, sharing: state.sharing, initialSources: state.sources, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, nativeSharingEvents, backgroundTimerMs, focusPreservationSettled, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
+  await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ ready: true, nativeTray, nativeLoginEnabled, sharing: state.sharing, initialSources: state.sources, screenRecording, accessibility, canListShortcuts: shortcuts.canList, focusAuthorization: focusStatus.authorization, isFocused: focusStatus.isFocused, liveSharingVerified, liveSharingSources, liveSharingSamples, stableCaptureMs, stopRequestedAt, nativeSharingEvents, backgroundTimerMs, focusPreservationSettled, focusShortcutsInstalled: shortcuts.shortcuts.includes('Hush Focus On') && shortcuts.shortcuts.includes('Hush Focus Off') }));
   document.getElementById('quit').click();
 })().catch(async function(error) {
   try {
-    await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ error: error instanceof Error ? error.message : JSON.stringify(error) }));
+    await craft.fs.writeFile(${JSON.stringify(reportPath)}, JSON.stringify({ error: error instanceof Error ? error.message : JSON.stringify(error), nativeSharingEvents }));
   }
   finally { document.getElementById('quit').click(); }
 });
+})();
 </script>`
 
 try {
@@ -301,7 +351,7 @@ try {
     throw new Error(`Native app ${timedOut ? 'timed out' : `exited with ${exitCode}`}: ${diagnostic}\n${stdout}${stderr}`)
   }
   const report = JSON.parse(readFileSync(reportPath, 'utf8'))
-  if (report.error || report.ready !== true) throw new Error(`${report.error ?? 'Native app was not ready'}\n${stderr}`)
+  if (report.error || report.ready !== true) throw new Error(`${JSON.stringify(report)}\n${stderr}`)
   report.minimumMacOS = minimum
   report.bundleBytes = bundleBytes
   report.nativeCheckMs = Math.round(performance.now() - started)
