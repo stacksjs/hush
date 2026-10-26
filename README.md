@@ -119,6 +119,7 @@ the Focus and login switches against native state.
 identity and permission context, including a 65-second hidden-WebKit background
 timer check. Both native checks run in CI. The compiled-client suite separately verifies transitions and controls
 against a deterministic bridge. Missing build artifacts fail the E2E suite.
+For the installed app, `bun scripts/test-native.ts --app=/Applications/Hush.app --enable-login --background-ms=65000` enables the shipped login switch, verifies native registration, and checks the hidden app's timer. A subsequent run without `--enable-login` verifies the registration persists.
 A live conferencing/Focus check also requires Screen Recording permission and
 the two user-created shortcuts described above; the native report records
 whether those shortcuts are installed. To verify a real window-sharing session

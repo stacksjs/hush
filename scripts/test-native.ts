@@ -46,6 +46,9 @@ const work = mkdtempSync(join(tmpdir(), 'hush-native-check-'))
 const reportPath = join(work, 'result.json')
 const nativeFile = join(work, 'native-file.txt')
 const setupPermissions = process.argv.includes('--setup-permissions')
+const enableLogin = process.argv.includes('--enable-login')
+if (enableLogin && !bundle.startsWith('/Applications/') && !bundle.startsWith(join(homedir(), 'Applications/')))
+  throw new Error('Login verification must target an installed app with --app.')
 const exerciseFocus = process.argv.includes('--exercise-focus')
 const expectTabSharing = process.argv.includes('--expect-tab-sharing')
 const expectedApp = process.argv.find(arg => arg.startsWith('--expect-app='))?.slice(13)
@@ -57,7 +60,7 @@ const backgroundArgument = process.argv.find(arg => arg.startsWith('--background
 const backgroundMs = backgroundArgument ? Number(backgroundArgument) : 0
 if (!Number.isSafeInteger(backgroundMs) || backgroundMs < 0 || backgroundMs > 120_000) throw new Error('Background duration must be 0–120000 milliseconds.')
 if (backgroundMs && observeSharing) throw new Error('Run background timing and interactive sharing checks separately.')
-const launchServices = setupPermissions || observeSharing || backgroundMs > 0 || process.argv.includes('--launch-services')
+const launchServices = setupPermissions || enableLogin || observeSharing || backgroundMs > 0 || process.argv.includes('--launch-services')
 const timeoutArgument = process.argv.find(arg => arg.startsWith('--timeout-ms='))?.slice(13)
 const budget = timeoutArgument ? Number(timeoutArgument) : observeSharing ? 250_000 : setupPermissions ? 120_000 : 25_000 + backgroundMs
 if (!Number.isSafeInteger(budget) || budget < 1000 || budget > 600_000) throw new Error('Native timeout must be 1000–600000 milliseconds.')
@@ -93,8 +96,18 @@ const assertions = `<script>
   const nativeTray = await craft.tray.getState();
   if (nativeTray.title !== '' || nativeTray.tooltip !== 'Hush — a little peace of mind' || !nativeTray.hasIcon || !nativeTray.template || !nativeTray.visible || nativeTray.imagePosition !== 1)
     throw new Error('Hush status item did not render its icon and title correctly: ' + JSON.stringify(nativeTray));
-  const nativeLoginEnabled = await craft.autoLaunch.isEnabled();
+  let nativeLoginEnabled = await craft.autoLaunch.isEnabled();
   if (document.getElementById('pref-login').checked !== nativeLoginEnabled) throw new Error('Launch at login disagrees with macOS');
+  ${enableLogin ? `
+  if (!nativeLoginEnabled) document.getElementById('pref-login').click();
+  const loginDeadline = Date.now() + 10000;
+  while (!nativeLoginEnabled) {
+    if (Date.now() > loginDeadline) throw new Error('The installed app did not register launch at login: ' + document.getElementById('status').textContent);
+    await craft.timers.sleep(100);
+    nativeLoginEnabled = await craft.autoLaunch.isEnabled();
+  }
+  if (!document.getElementById('pref-login').checked) throw new Error('The shipped login switch did not reflect registration');
+  ` : ''}
   if (document.documentElement.scrollWidth > innerWidth) throw new Error('Popover content overflows horizontally');
   await craft.fs.writeFile(${JSON.stringify(nativeFile)}, 'Hush native round trip');
   async function stage(name) {
