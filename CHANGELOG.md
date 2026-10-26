@@ -1,3 +1,18 @@
+[Compare changes](https://github.com/stacksjs/hush/compare/v0.2.5...v0.2.6)
+
+## 🐛 Bug Fixes
+
+- qualify stable native sharing with current Pantry and Craft ([5883163](https://github.com/stacksjs/hush/commit/5883163)) _(by Chris <chrisbreuer93@gmail.com>)_
+- keep monitoring while native sharing status is unavailable ([c47a6a3](https://github.com/stacksjs/hush/commit/c47a6a3)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.2.6 ([b50dcc6](https://github.com/stacksjs/hush/commit/b50dcc6)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/hush/compare/v0.2.4...v0.2.5)
 
 ## 🐛 Bug Fixes
