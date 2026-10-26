@@ -1,3 +1,17 @@
+[Compare changes](https://github.com/stacksjs/hush/compare/v0.2.4...v0.2.5)
+
+## 🐛 Bug Fixes
+
+- require signed native containers and verify installed login launch ([96d2822](https://github.com/stacksjs/hush/commit/96d2822)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## 🔧 Chores
+
+- release v0.2.5 ([104b466](https://github.com/stacksjs/hush/commit/104b466)) _(by Chris <chrisbreuer93@gmail.com>)_
+
+## Contributors
+
+- _Chris <chrisbreuer93@gmail.com>_
+
 [Compare changes](https://github.com/stacksjs/hush/compare/v0.2.3...v0.2.4)
 
 ## 🐛 Bug Fixes
