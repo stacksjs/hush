@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   native:
-    uses: pantry-pm/pantry/.github/workflows/native-app.yml@v0.11.133
+    uses: pantry-pm/pantry/.github/workflows/native-app.yml@v0.11.152
     with:
       release: true
     secrets:

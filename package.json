@@ -55,15 +55,15 @@
     "verify": "bun run build && bun run typecheck && bun run test:unit && bun run test:e2e && bun run test:native && bun run test:native:app"
   },
   "dependencies": {
-    "@stacksjs/stx": "^0.2.698",
-    "@stacksjs/desktop": "^0.2.698",
-    "@stacksjs/components": "^0.2.698"
+    "@stacksjs/stx": "^0.2.775",
+    "@stacksjs/desktop": "^0.2.775",
+    "@stacksjs/components": "^0.2.775"
   },
   "devDependencies": {
-    "@stacksjs/buddy": "^0.75.315",
+    "@stacksjs/buddy": "^0.75.399",
     "better-dx": "^0.2.38",
-    "ts-pantry": "^0.11.133",
-    "very-happy-dom": "^0.4.0"
+    "ts-pantry": "^0.11.152",
+    "very-happy-dom": "^0.4.1"
   },
   "git-hooks": {
     "pre-commit": {
